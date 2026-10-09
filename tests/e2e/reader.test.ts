@@ -1,10 +1,15 @@
 import { beforeAll, describe, expect, it } from "vitest";
+import { t } from "@/domain/i18n";
+import { disclaimers } from "../../db/seed/data";
 import { HttpClient, siteOrigin, E2E_PORT } from "../http-client";
 import { insertReaderFixtures } from "./fixtures";
 
+// Tarun Bharat publishes only Marathi (default, unprefixed); Paper B English first, Marathi at
+// /mr; Paper C only Marathi.
 const tb = siteOrigin("tarunbharat");
 const pb = siteOrigin("paperb");
 const pc = siteOrigin("paperc");
+const TB = "तरुण भारत";
 const http = new HttpClient();
 
 const get = (url: string) => http.get(url);
@@ -33,9 +38,9 @@ describe("host-based tenancy", () => {
   });
 
   it("serves other languages under a prefix", async () => {
-    const res = await get(`${tb}/en`);
+    const res = await get(`${pb}/mr`);
     expect(res.status).toBe(200);
-    expect(res.text).toMatch(/<html[^>]*lang="en"/);
+    expect(res.text).toMatch(/<html[^>]*lang="mr"/);
   });
 
   it("redirects a prefixed default-language URL (308) to its one URL", async () => {
@@ -49,20 +54,17 @@ describe("host-based tenancy", () => {
 
   it("serves nothing on an unknown host, and hides the internal routes on the panel host", async () => {
     expect((await get(`http://unknown.localhost:${E2E_PORT}/`)).status).toBe(404);
-    expect((await get(`/sites/tarunbharat.localhost/en`)).status).toBe(404);
+    expect((await get(`/sites/tarunbharat.localhost/mr`)).status).toBe(404);
   });
 
   it("treats a language the paper does not publish as an unknown page", async () => {
+    expect((await get(`${tb}/en`)).status).toBe(404);
+    expect((await get(`${tb}/en/mutual-funds/sip-basics`)).status).toBe(404);
     expect((await get(`${pc}/en/home-loan`)).status).toBe(404);
   });
 
   it("answers unknown pages with the paper's own 404", async () => {
-    for (const path of [
-      "/en/nonexistent",
-      "/en/mutual-funds/nope",
-      "/en/a/b/c",
-      "/calculators/nope",
-    ]) {
+    for (const path of ["/nonexistent", "/mutual-funds/nope", "/a/b/c", "/calculators/nope"]) {
       expect((await get(`${tb}${path}`)).status, path).toBe(404);
     }
   });
@@ -70,67 +72,77 @@ describe("host-based tenancy", () => {
 
 describe("reader pages (TESTING §1)", () => {
   it("opens every page type", async () => {
-    for (const path of [
-      "/",
-      "/en",
-      "/home-loan",
-      "/en/home-loan",
-      "/en/mutual-funds/sip-basics",
-      "/home-loan/home-loan-checklist",
-      "/en/home-loan/home-loan-checklist",
-      "/en/calculators",
-      "/en/calculators/sip",
-      "/en/glossary",
-      "/en/glossary/sip",
-      "/en/partners/sample-amc",
-      "/en/experts/suresh-patil",
+    for (const url of [
+      `${tb}/`,
+      `${tb}/home-loan`,
+      `${tb}/mutual-funds/sip-basics`,
+      `${tb}/home-loan/home-loan-checklist`,
+      `${tb}/calculators`,
+      `${tb}/calculators/sip`,
+      `${tb}/glossary`,
+      `${tb}/glossary/sip`,
+      `${tb}/partners/sample-amc`,
+      `${tb}/experts/suresh-patil`,
+      `${pb}/`,
+      `${pb}/mutual-funds/sip-basics`,
+      `${pb}/home-loan/home-loan-checklist`,
+      `${pb}/mr/mutual-funds/emergency-fund-first`,
     ]) {
-      expect((await get(`${tb}${path}`)).status, path).toBe(200);
+      expect((await get(url)).status, url).toBe(200);
     }
   });
 
   it("[E2E-UI-20] readers can open the live article", async () => {
-    const res = await get(`${tb}/en/mutual-funds/sip-basics`);
+    const res = await get(`${tb}/mutual-funds/sip-basics`);
     expect(res.status).toBe(200);
-    expect(res.text).toContain("SIP basics: how a small monthly investment adds up");
+    expect(res.text).toContain("एसआयपीची ओळख");
   });
 
   it("[E2E-UI-21] it carries the Partner content label and the editor's sign-off", async () => {
-    const { text } = await get(`${tb}/en/mutual-funds/sip-basics`);
-    expect(text).toContain("Partner content");
-    expect(text).toContain("Approved by the Tarun Bharat editor");
-    const deemed = await get(`${tb}/en/home-loan/home-loan-checklist`);
-    expect(deemed.text).toContain("Published by the Tarun Bharat finance desk");
-    expect(deemed.text).not.toContain("Partner content");
+    const { text } = await get(`${tb}/mutual-funds/sip-basics`);
+    expect(text).toContain(t("mr", "partnerContent"));
+    expect(text).toContain(t("mr", "approvedByEditor", { paper: TB }));
+    const deemed = await get(`${tb}/home-loan/home-loan-checklist`);
+    expect(deemed.text).toContain(t("mr", "publishedByDesk", { paper: TB }));
+    expect(deemed.text).not.toContain(t("mr", "partnerContent"));
+    const english = await get(`${pb}/mutual-funds/sip-basics`);
+    expect(english.text).toContain("Partner content");
+    expect(english.text).toContain("Approved by the Paper B editor");
   });
 
   it("[E2E-UI-22] it carries the mutual fund disclaimer", async () => {
-    const { text } = await get(`${tb}/en/mutual-funds/sip-basics`);
-    expect(text).toContain("Mutual fund investments are subject to market risks");
+    const mf = disclaimers.find((d) => d.key === "mf")!.text;
+    expect((await get(`${tb}/mutual-funds/sip-basics`)).text).toContain(mf.mr);
+    expect((await get(`${pb}/mutual-funds/sip-basics`)).text).toContain(mf.en);
   });
 
   it("shows the byline, embedded calculator, related reads and structured data", async () => {
-    const { text } = await get(`${tb}/en/mutual-funds/sip-basics`);
-    expect(text).toContain('href="/en/experts/anita-kulkarni"');
-    expect(text).toContain("SIP calculator");
-    expect(text).toContain("Related reads");
+    const { text } = await get(`${tb}/mutual-funds/sip-basics`);
+    expect(text).toContain('href="/experts/anita-kulkarni"');
+    expect(text).toContain("एसआयपी कॅल्क्युलेटर");
+    expect(text).toContain(t("mr", "relatedReads"));
     expect(text).toContain('"@type":"Article"');
   });
 
   it("shows an independent expert's tag and disclosed affiliations", async () => {
-    const article = await get(`${tb}/en/mutual-funds/emergency-fund-first`);
-    expect(article.text).toContain("Independent expert");
-    expect(article.text).toContain("Disclosed affiliations");
-    const expert = await get(`${tb}/en/experts/suresh-patil`);
+    const article = await get(`${tb}/mutual-funds/emergency-fund-first`);
+    expect(article.text).toContain(t("mr", "independentExpert"));
+    expect(article.text).toContain(t("mr", "disclosedAffiliations"));
+    const expert = await get(`${tb}/experts/suresh-patil`);
     expect(expert.text).toContain("Distributor of mutual funds for several AMCs");
     expect(expert.text).toContain('"@type":"Person"');
   });
 
   it("switches language to the same page, or to that language's home when it is missing", async () => {
-    const both = await get(`${tb}/en/home-loan/home-loan-checklist`);
-    expect(both.text).toContain('href="/home-loan/home-loan-checklist" hrefLang="mr"');
-    const englishOnly = await get(`${tb}/en/mutual-funds/sip-basics`);
-    expect(englishOnly.text).toContain('href="/" hrefLang="mr"');
+    const both = await get(`${pb}/mutual-funds/emergency-fund-first`);
+    expect(both.text).toContain('href="/mr/mutual-funds/emergency-fund-first" hrefLang="mr"');
+    const englishOnly = await get(`${pb}/mutual-funds/sip-basics`);
+    expect(englishOnly.text).toContain('href="/mr" hrefLang="mr"');
+  });
+
+  it("shows no language switcher on a single-language paper", async () => {
+    const { text } = await get(`${tb}/mutual-funds/sip-basics`);
+    expect(text).not.toMatch(/<a\b[^>]*hrefLang=/);
   });
 });
 
@@ -142,7 +154,7 @@ describe("only published copies are visible", () => {
       "fixture-taken-down",
       "fixture-other-paper",
     ]) {
-      expect((await get(`${tb}/en/mutual-funds/${slug}`)).status, slug).toBe(404);
+      expect((await get(`${tb}/mutual-funds/${slug}`)).status, slug).toBe(404);
     }
     expect((await get(`${pb}/mutual-funds/fixture-other-paper`)).status).toBe(200);
   });
@@ -150,22 +162,22 @@ describe("only published copies are visible", () => {
 
 describe("links in article bodies (04.11)", () => {
   it("[E2E-ADS-34] an outbound link in an institution's article carries rel=sponsored", async () => {
-    const { text } = await get(`${tb}/en/mutual-funds/fixture-links`);
+    const { text } = await get(`${tb}/mutual-funds/fixture-links`);
     const [tag] = anchors(text, "https://www.sebi.gov.in/");
     expect(tag).toContain('rel="sponsored noopener noreferrer"');
     expect(tag).toContain('target="_blank"');
   });
 
   it("[E2E-ADS-35] a link within the site stays a plain link", async () => {
-    const { text } = await get(`${tb}/en/mutual-funds/fixture-links`);
-    const [tag] = anchors(text, "/en/glossary/sip");
+    const { text } = await get(`${tb}/mutual-funds/fixture-links`);
+    const [tag] = anchors(text, "/glossary/sip");
     expect(tag).toBeDefined();
     expect(tag).not.toContain("rel=");
     expect(tag).not.toContain("target=");
   });
 
   it("[E2E-ADS-36] links that could run code or leave the site unexpectedly are shown as plain text", async () => {
-    const { text } = await get(`${tb}/en/mutual-funds/fixture-links`);
+    const { text } = await get(`${tb}/mutual-funds/fixture-links`);
     expect(text).toContain("run code");
     expect(text).not.toMatch(/href="javascript:/i);
     expect(text).not.toContain('href="//evil.example');
@@ -173,7 +185,7 @@ describe("links in article bodies (04.11)", () => {
   });
 
   it("[E2E-ADS-37] an outbound link in an abcfinance article is not marked as sponsored", async () => {
-    const { text } = await get(`${tb}/en/home-loan/home-loan-checklist`);
+    const { text } = await get(`${tb}/home-loan/home-loan-checklist`);
     const [tag] = anchors(text, "https://www.rbi.org.in/");
     expect(tag).toContain('rel="noopener noreferrer"');
     expect(tag).not.toContain("sponsored");
@@ -184,9 +196,9 @@ describe("privacy", () => {
   it("[E2E-AN-02] reader pages set no cookies", async () => {
     for (const url of [
       `${tb}/`,
-      `${tb}/en/mutual-funds/sip-basics`,
+      `${tb}/mutual-funds/sip-basics`,
       `${pb}/`,
-      `${tb}/en/nonexistent`,
+      `${tb}/nonexistent`,
       `${tb}/sitemap.xml`,
     ]) {
       const res = await new HttpClient().get(url);

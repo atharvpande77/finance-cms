@@ -93,3 +93,14 @@ exist and the purge can be tested end to end.
 
 `/<section>` and `/<section>/<slug>` are served by `(site)/[...path]`. Any deeper or unknown path
 then ends in the paper's themed 404 rather than Next's default page.
+
+## D14. Tarun Bharat is Marathi-only (2026-10-09, user decision)
+
+The handover's demo world gives Tarun Bharat Marathi plus English at `/en` (TESTING.md §1). The
+real Tarun Bharat finance section is Marathi-only, so its tenant row lists only `mr`. English demo
+copies moved to Paper B (English first, Marathi at `/mr`), and `sip-basics` gained a Marathi version.
+
+TESTING.md walk-through URLs under `tarunbharat.localhost:3000/en/...` don't apply; the same pages
+are unprefixed in Marathi, and the English cases live on `paperb.localhost:3000`. Phase 1's "at
+least two languages" is still met across papers. Languages are tenant data: re-enabling English
+means adding `en` to the row, with no deploy.

@@ -85,7 +85,7 @@ export const tenants: Array<{
       headingFont: "noto-sans",
       bodyFont: "noto-sans",
     },
-    languages: ["mr", "en"],
+    languages: ["mr"],
     defaultLanguage: "mr",
     status: "live",
     autoApproveHours: 24,

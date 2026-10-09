@@ -38,7 +38,7 @@ async function article(
     .values({
       slug,
       type: "institution",
-      masterLanguage: "en",
+      masterLanguage: "mr",
       organisationId: amcId,
       sectionId,
       reviewBy: "2027-04-01",
@@ -50,7 +50,8 @@ async function article(
       .values({
         articleId: a!.id,
         tenantId: v.tenant ? tenant(v.tenant) : null,
-        language: "en",
+        // Each paper's own default language: Tarun Bharat publishes only Marathi.
+        language: v.tenant === "paperb" ? "en" : "mr",
         headline: `Fixture ${slug}`,
         summary: "Fixture",
         body,
@@ -62,7 +63,7 @@ async function article(
   }
 }
 
-export const LINK_FIXTURE_BODY = `An outbound link to [the regulator](https://www.sebi.gov.in/) and a [site link](/en/glossary/sip).
+export const LINK_FIXTURE_BODY = `An outbound link to [the regulator](https://www.sebi.gov.in/) and a [site link](/glossary/sip).
 
 Unsafe ones: [run code](javascript:alert(1)) and [elsewhere](//evil.example/path) and [backslash](/\\evil.example).`;
 

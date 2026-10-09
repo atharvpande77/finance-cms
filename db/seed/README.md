@@ -6,7 +6,7 @@ times: rows that already exist (matched by slug, email or name) are left alone.
 ## From the docs
 
 - **Newspapers:**
-  - Tarun Bharat: live, red, Marathi then English.
+  - Tarun Bharat: live, red, Marathi only (D14; the handover demo also had English).
   - Paper B: staging, blue, English then Marathi.
   - Paper C: staging, green, Marathi only.
 - **Institutions:** Sample AMC, Sample General Insurer, and Sample Life Insurer (no users; holds the
@@ -39,15 +39,17 @@ native editor and by compliance before launch (09.4).
 
 Seven articles with their published paper copies.
 
-| Article                            | Type and section                                    | Copies                                                                                                  |
-| ---------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `sip-basics` (TESTING.md)          | AMC, mutual funds                                   | Tarun Bharat en (editor-approved); Paper B en three days later, so its canonical points to Tarun Bharat |
-| `home-loan-checklist` (TESTING.md) | abcfinance, home loan                               | Tarun Bharat mr and en; Paper C mr                                                                      |
-| `emergency-fund-first`             | independent expert Suresh Patil, mutual funds       | Tarun Bharat en and mr; Paper B en                                                                      |
-| `elss-tax-saving`                  | AMC, mutual funds                                   | Tarun Bharat en                                                                                         |
-| `health-cover-for-parents`         | General Insurer, health insurance                   | Tarun Bharat en and mr                                                                                  |
-| `how-much-term-cover`              | abcfinance, life insurance (the exclusive category) | Tarun Bharat en and mr                                                                                  |
-| `gold-loan-before-you-pledge`      | abcfinance, gold loans                              | Tarun Bharat mr; Paper C mr                                                                             |
+| Article                            | Type and section                                    | Copies                                                                            |
+| ---------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `sip-basics` (TESTING.md)          | AMC, mutual funds                                   | Tarun Bharat mr (editor-approved); Paper B en                                     |
+| `home-loan-checklist` (TESTING.md) | abcfinance, home loan                               | Tarun Bharat mr; Paper C mr two days later (canonical → Tarun Bharat); Paper B en |
+| `emergency-fund-first`             | independent expert Suresh Patil, mutual funds       | Tarun Bharat mr; Paper B en and mr                                                |
+| `elss-tax-saving`                  | AMC, mutual funds                                   | Paper B en                                                                        |
+| `health-cover-for-parents`         | General Insurer, health insurance                   | Tarun Bharat mr; Paper B en                                                       |
+| `how-much-term-cover`              | abcfinance, life insurance (the exclusive category) | Tarun Bharat mr; Paper B en                                                       |
+| `gold-loan-before-you-pledge`      | abcfinance, gold loans                              | Tarun Bharat mr; Paper C mr                                                       |
+
+Tarun Bharat publishes only Marathi (decision D14).
 
 The content is fictional and is not financial advice.
 

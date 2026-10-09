@@ -35,6 +35,26 @@ export const articles: SeedArticle[] = [
     masterLanguage: "en",
     createdAt: "2026-09-08T05:30:00Z",
     versions: {
+      mr: {
+        headline: "एसआयपीची ओळख: दरमहा छोटी गुंतवणूक कशी वाढते",
+        summary:
+          "सिस्टिमॅटिक इन्व्हेस्टमेंट प्लॅनमध्ये दरमहा ठरावीक रक्कम म्युच्युअल फंडात गुंतवली जाते. ती कशी काम करते आणि सुरुवात करण्यापूर्वी काय तपासावे ते पाहा.",
+        body: `सिस्टिमॅटिक इन्व्हेस्टमेंट प्लॅन, म्हणजेच एसआयपी, दरमहा एकाच तारखेला ठरावीक रक्कम म्युच्युअल फंड योजनेत गुंतवते. फक्त ₹५०० पासून सुरुवात करता येते.
+
+## गुंतवणूकदारांना एसआयपी का आवडते
+
+- **सवय:** रक्कम आपोआप खात्यातून जाते, त्यामुळे खर्च करण्यापूर्वीच गुंतवणूक होते.
+- **सरासरी:** भाव कमी असताना जास्त युनिट्स आणि भाव जास्त असताना कमी युनिट्स मिळतात.
+- **लवचिकता:** एसआयपीची रक्कम कधीही वाढवता, थांबवता किंवा बंद करता येते.
+
+{{calc:sip}}
+
+## सुरुवात करण्यापूर्वी
+
+तुम्ही किती काळ गुंतवणूक ठेवू शकता त्यानुसार योजना निवडा. पाच वर्षांहून दूरच्या उद्दिष्टांसाठी इक्विटी फंड योग्य ठरतात; कमी कालावधीसाठी डेट किंवा हायब्रिड फंड पाहा.
+
+योजनेचे माहितीपत्रक वाचा आणि फंडाचा प्रकार व खर्च [एएमएफआयच्या संकेतस्थळावर](https://www.amfiindia.com/) तपासा. संज्ञा नव्या आहेत? आमच्या [शब्दकोशात](/glossary/sip) एसआयपी आणि इतर संज्ञांचे अर्थ आहेत.`,
+      },
       en: {
         headline: "SIP basics: how a small monthly investment adds up",
         summary:
@@ -53,16 +73,11 @@ export const articles: SeedArticle[] = [
 
 Pick a scheme that matches how long you can stay invested. Equity funds suit goals five or more years away; for shorter goals, look at debt or hybrid funds.
 
-Read the scheme information document, and check a fund's category and costs on the [AMFI website](https://www.amfiindia.com/). New to the terms? Our [glossary](/en/glossary/sip) explains SIP and more.`,
+Read the scheme information document, and check a fund's category and costs on the [AMFI website](https://www.amfiindia.com/). New to the terms? Our [glossary](/glossary/sip) explains SIP and more.`,
       },
     },
     copies: [
-      {
-        tenant: "tarunbharat",
-        lang: "en",
-        publishedAt: "2026-09-14T05:30:00Z",
-        approval: "explicit",
-      },
+      { tenant: "tarunbharat", lang: "mr", publishedAt: "2026-09-14T05:30:00Z", approval: "explicit" },
       { tenant: "paperb", lang: "en", publishedAt: "2026-09-17T06:00:00Z", approval: "explicit" },
     ],
   },
@@ -91,12 +106,7 @@ If you invest through a SIP, remember that every monthly instalment has its own 
       },
     },
     copies: [
-      {
-        tenant: "tarunbharat",
-        lang: "en",
-        publishedAt: "2026-09-21T05:30:00Z",
-        approval: "explicit",
-      },
+      { tenant: "paperb", lang: "en", publishedAt: "2026-09-21T05:30:00Z", approval: "explicit" },
     ],
   },
   {
@@ -150,19 +160,9 @@ The Reserve Bank's [financial education pages](https://www.rbi.org.in/financiale
       },
     },
     copies: [
-      {
-        tenant: "tarunbharat",
-        lang: "en",
-        publishedAt: "2026-09-24T05:30:00Z",
-        approval: "deemed",
-      },
-      {
-        tenant: "tarunbharat",
-        lang: "mr",
-        publishedAt: "2026-09-24T05:45:00Z",
-        approval: "deemed",
-      },
+      { tenant: "tarunbharat", lang: "mr", publishedAt: "2026-09-24T05:45:00Z", approval: "deemed" },
       { tenant: "paperb", lang: "en", publishedAt: "2026-09-26T05:30:00Z", approval: "deemed" },
+      { tenant: "paperb", lang: "mr", publishedAt: "2026-09-26T05:45:00Z", approval: "deemed" },
     ],
   },
   {
@@ -236,19 +236,9 @@ Read the loan agreement carefully and set the EMI date after your salary date. A
       },
     },
     copies: [
-      {
-        tenant: "tarunbharat",
-        lang: "mr",
-        publishedAt: "2026-09-10T05:30:00Z",
-        approval: "deemed",
-      },
-      {
-        tenant: "tarunbharat",
-        lang: "en",
-        publishedAt: "2026-09-10T05:40:00Z",
-        approval: "deemed",
-      },
+      { tenant: "tarunbharat", lang: "mr", publishedAt: "2026-09-10T05:30:00Z", approval: "deemed" },
       { tenant: "paperc", lang: "mr", publishedAt: "2026-09-12T05:30:00Z", approval: "deemed" },
+      { tenant: "paperb", lang: "en", publishedAt: "2026-09-15T05:30:00Z", approval: "deemed" },
     ],
   },
   {
@@ -296,18 +286,8 @@ Disclose every existing illness on the proposal form. Hiding one is the most com
       },
     },
     copies: [
-      {
-        tenant: "tarunbharat",
-        lang: "en",
-        publishedAt: "2026-09-28T05:30:00Z",
-        approval: "explicit",
-      },
-      {
-        tenant: "tarunbharat",
-        lang: "mr",
-        publishedAt: "2026-09-28T05:45:00Z",
-        approval: "explicit",
-      },
+      { tenant: "tarunbharat", lang: "mr", publishedAt: "2026-09-28T05:45:00Z", approval: "explicit" },
+      { tenant: "paperb", lang: "en", publishedAt: "2026-09-29T05:30:00Z", approval: "explicit" },
     ],
   },
   {
@@ -357,18 +337,8 @@ Start with the share of your income your family depends on, multiply it by the y
       },
     },
     copies: [
-      {
-        tenant: "tarunbharat",
-        lang: "en",
-        publishedAt: "2026-10-02T05:30:00Z",
-        approval: "deemed",
-      },
-      {
-        tenant: "tarunbharat",
-        lang: "mr",
-        publishedAt: "2026-10-02T05:45:00Z",
-        approval: "deemed",
-      },
+      { tenant: "tarunbharat", lang: "mr", publishedAt: "2026-10-02T05:45:00Z", approval: "deemed" },
+      { tenant: "paperb", lang: "en", publishedAt: "2026-10-03T05:30:00Z", approval: "deemed" },
     ],
   },
   {
@@ -402,12 +372,7 @@ Start with the share of your income your family depends on, multiply it by the y
       },
     },
     copies: [
-      {
-        tenant: "tarunbharat",
-        lang: "mr",
-        publishedAt: "2026-10-05T05:30:00Z",
-        approval: "deemed",
-      },
+      { tenant: "tarunbharat", lang: "mr", publishedAt: "2026-10-05T05:30:00Z", approval: "deemed" },
       { tenant: "paperc", lang: "mr", publishedAt: "2026-10-06T05:30:00Z", approval: "deemed" },
     ],
   },
