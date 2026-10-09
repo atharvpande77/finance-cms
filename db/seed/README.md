@@ -56,9 +56,25 @@ The content is fictional and is not financial advice.
 **Changed seed data needs a reset.** The seed only adds missing rows, so after pulling changes to
 themes or articles, run `corepack pnpm db:reset`.
 
+## Articles in the workflow (M3a): `workflow.ts`
+
+Five of the seven workflow-state articles TESTING.md names, each with a master version and its
+history. Their text is invented.
+
+| Article                        | Where it is                                                 |
+| ------------------------------ | ----------------------------------------------------------- |
+| `debt-funds-vs-equity-funds`   | AMC draft by `writer.amc`                                   |
+| `cashless-or-reimbursement`    | General Insurer, in approval (for `approver.gi`)            |
+| `fixed-deposit-or-mutual-fund` | AMC, editing; says "assured returns", so the check flags it |
+| `education-loan-moratorium`    | abcfinance, editing                                         |
+| `riders-on-a-term-plan`        | Life Insurer, compliance review (no demo users there)       |
+
+Steps by people without demo accounts are recorded with the actor label "seed (no demo account)".
+
 ## Still to add
 
-- **M3:** articles in workflow states. TESTING.md names 7 more (14 in total with the 7 above).
+- **M3b:** the two articles already with the newspapers ("Home loan balance transfer", "Index
+  funds in plain words").
 - **M5:** 45 days of traffic.
 - **M7:** past statements.
 - **M8:** widget cards.

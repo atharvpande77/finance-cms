@@ -1,5 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { db, schema } from "@/server/db/client";
 import { open } from "@/server/crypto/secret-box";
 import { pageText } from "../http-client";
@@ -17,6 +17,22 @@ const GENERIC = "The email or password is incorrect.";
 const BAD_CODE = "That code didn't work";
 
 describe("sign-in, two-step verification, lockout and audit trail", () => {
+  // Other suites may already have set up two-step for approver.amc or locked writer.gi; this
+  // one walks through first-time set-up and the lockout, so it starts both from scratch.
+  beforeAll(async () => {
+    await db()
+      .update(schema.users)
+      .set({ totpSecretEnc: null, totpEnabled: false, totpLastStep: null })
+      .where(eq(schema.users.email, demoEmail("approver.amc")));
+    await db()
+      .update(schema.users)
+      .set({ failedLogins: 0, lockedUntil: null })
+      .where(eq(schema.users.email, demoEmail("writer.gi")));
+    await db()
+      .delete(schema.sessions)
+      .where(inArray(schema.sessions.userId, [(await userByEmail(demoEmail("approver.amc"))).id]));
+  });
+
   const writer = person();
 
   it("[E2E-AUTH-01] writer: login redirects to /dashboard", async () => {

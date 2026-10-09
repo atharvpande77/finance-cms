@@ -108,13 +108,27 @@ Each milestone ends when its doc-08 checks are automated and green in CI, and th
 - Role-per-organisation permission helper (`domain/roles.ts`); same-origin check on form posts.
 - Panel layout with a role-aware menu, dashboard ("waiting for you", recent activity), and audit events.
 
-**M3. Article workflow and publisher approval** (04.2–4.3)
-- Article editor: markup, live preview, automated checks shown live (English and Marathi patterns), history, add language.
-- State machine with per-role transitions, required comments on return, and workflow events. Concurrent edits use optimistic concurrency: a version column, and the loser is told someone else changed it.
-- Release to several papers: language support check, skip papers that already have it, per-copy explicit-approval reasons (first 3 articles from an institution, a flagged check, held section), and a release-preview screen.
-- Publisher queue: approve, hold (reason required, stops the clock), take down (reason required, works on live copies). `publisher_admin` can view only.
-- Cron step for deemed approval (idempotent; concurrent human decisions win), the "publish anything past its window now" button, and review-due flags.
-- Mail outbox sender wired into cron.
+**M3. Article workflow and publisher approval** (04.2–4.3). Split in two (2026-10-09) because it
+is the largest milestone, at about 90 checks.
+
+**M3a. Authoring and institution approvals** (plan: `docs/plans/m3a-authoring-approvals.md`)
+- Article editor: markup, live preview, automated checks shown live (English and Marathi
+  patterns), history, add a language.
+- State machine with per-role transitions, required comments on return, and workflow events.
+  Concurrent edits and steps use optimistic concurrency: a version column, and the loser is told
+  someone else changed it (D22).
+- "Your turn" markers and the dashboard's "Waiting for you".
+
+**M3b. Release, the publisher queue and deemed approval**
+- Release to several papers: language support check, skip papers that already have it, per-copy
+  explicit-approval reasons (first 3 articles from an institution, a flagged check, held
+  section), and a release-preview screen.
+- Publisher queue: approve, hold (reason required, stops the clock), take down (reason required,
+  works on live copies). `publisher_admin` can view only.
+- Cron step for deemed approval (idempotent; concurrent human decisions win), the "publish
+  anything past its window now" button, and review-due flags.
+- Mail outbox sender wired into cron; tag-based page caching purged on publish, takedown and edit
+  (D11).
 
 **M4. Calculators and leads** (04.6–4.7, 06.4–6.5)
 - The 7 formulas in `domain/calc/` with doc-04 defaults, lakh/crore wording (en/mr), "how this is worked out", "rates as of" date, and React client components embedded with `{{calc:slug}}` plus `/calculators/<slug>` pages.
@@ -184,8 +198,8 @@ Doc 08 has **651 checks without IDs**, in two parts: **475 end-to-end checks** i
 | Doc-08 group | Count | Milestone |
 | --- | --- | --- |
 | E2E sign-in, 2FA, lockout, audit | 20 | M2 |
-| E2E workflow rules | 40 | M3 |
-| E2E workflow via pages and reader view | 30 | M3 (reader-view parts need M1) |
+| E2E workflow rules | 40 | M3a (18) and M3b (22) |
+| E2E workflow via pages and reader view | 30 | M1 (5), M3a (15), M3b (the rest) |
 | E2E leads | 53 | M4 |
 | E2E calculators and rates | 33 | M4 |
 | E2E analytics and reports, finance | 59 | M5 (finance subset in M7) |

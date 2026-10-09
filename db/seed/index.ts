@@ -8,6 +8,7 @@ import { db, schema } from "@/server/db/client";
 import { hashPassword } from "@/server/auth/password";
 import * as data from "./data";
 import { articles as seedArticles } from "./articles";
+import { workflowArticles } from "./workflow";
 
 async function main() {
   const d = db();
@@ -214,6 +215,65 @@ async function main() {
           createdAt: publishedAt,
         });
       }
+    });
+  }
+
+  // Articles part-way through the workflow (M3a): one master version each, with its history.
+  const now = Date.now();
+  for (const a of workflowArticles) {
+    const [existing] = await d
+      .select({ id: schema.articles.id })
+      .from(schema.articles)
+      .where(eq(schema.articles.slug, a.slug));
+    if (existing) continue;
+    const at = (hoursAgo: number) => new Date(now - hoursAgo * 3600_000);
+    const created = at(a.steps[0]!.hoursAgo);
+    const reviewBy = new Date(created);
+    reviewBy.setUTCMonth(reviewBy.getUTCMonth() + 6);
+    await d.transaction(async (tx) => {
+      const [article] = await tx
+        .insert(schema.articles)
+        .values({
+          slug: a.slug,
+          type: a.type,
+          masterLanguage: a.language,
+          organisationId: orgId(a.org),
+          authorId: authorRows.find((r) => r.slug === a.author)!.id,
+          sectionId: sectionRows.find((r) => r.slug === a.section)!.id,
+          reviewBy: reviewBy.toISOString().slice(0, 10),
+          createdById: a.steps[0]!.by ? userId(a.steps[0]!.by) : null,
+          createdAt: created,
+        })
+        .returning();
+      await tx
+        .insert(schema.articleTargets)
+        .values(a.targets.map((t) => ({ articleId: article!.id, tenantId: tenantId(t) })));
+      const [version] = await tx
+        .insert(schema.articleVersions)
+        .values({
+          articleId: article!.id,
+          language: a.language,
+          headline: a.headline,
+          summary: a.summary,
+          body: a.body,
+          state: a.state,
+          rev: a.steps.length - 1,
+          createdAt: created,
+          updatedAt: at(a.steps.at(-1)!.hoursAgo),
+        })
+        .returning();
+      await tx.insert(schema.workflowEvents).values(
+        a.steps.map((step) => ({
+          versionId: version!.id,
+          fromState: step.from,
+          toState: step.to,
+          userId: step.by ? userId(step.by) : null,
+          actorLabel: step.by ? null : "seed (no demo account)",
+          action: step.action,
+          comment: step.comment ?? null,
+          createdAt: at(step.hoursAgo),
+        })),
+      );
     });
   }
 

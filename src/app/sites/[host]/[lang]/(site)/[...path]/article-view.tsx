@@ -13,6 +13,7 @@ import {
   type PublishedCopy,
 } from "@/server/content/queries";
 import { ArticleBody } from "@/components/reader/ArticleBody";
+import { CalculatorPlaceholder } from "@/components/reader/CalculatorPlaceholder";
 import { ArticleCard } from "@/components/reader/ArticleCard";
 import { ArticleLabel } from "@/components/reader/Labels";
 import { Disclaimer } from "@/components/reader/Disclaimer";
@@ -133,7 +134,14 @@ export async function ArticleView(params: ArticleParams) {
         </header>
 
         <div className="mt-8">
-          <ArticleBody body={copy.body} articleType={copy.type} site={site} />
+          <ArticleBody
+            body={copy.body}
+            articleType={copy.type}
+            linkHosts={site.tenant.hosts}
+            renderCalculator={(calc) => (
+              <CalculatorPlaceholder calculator={calc} site={site} embedded />
+            )}
+          />
         </div>
 
         <div className="mt-10">

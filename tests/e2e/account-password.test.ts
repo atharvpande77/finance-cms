@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
+import { afterAll, describe, expect, it } from "vitest";
+import { db, schema } from "@/server/db/client";
+import { hashPassword } from "@/server/auth/password";
 import { pageText } from "../http-client";
 import { DEMO_PASSWORD, demoEmail, latestEmail, login, person, signInFully } from "./auth-helpers";
 
@@ -9,6 +12,14 @@ function change(client: Awaited<ReturnType<typeof signInFully>>, fields: Record<
 }
 
 describe("change password", () => {
+  // Other suites sign in as writer.abc with the demo password: put it back afterwards.
+  afterAll(async () => {
+    await db()
+      .update(schema.users)
+      .set({ passwordHash: await hashPassword(DEMO_PASSWORD) })
+      .where(eq(schema.users.email, demoEmail("writer.abc")));
+  });
+
   it("[E2E-USR-89] the change-password page is for signed-in people only", async () => {
     const res = await person().get("/account/password");
     expect(res.status).toBe(307);

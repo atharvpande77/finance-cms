@@ -43,6 +43,15 @@ export function addMonths(month: string, months: number): string {
   return d.toISOString().slice(0, 7);
 }
 
+/** Adds whole months to a "YYYY-MM-DD" date, keeping the day where it exists (31 Aug + 6 → 28/29 Feb). */
+export function addMonthsToDay(day: string, months: number): string {
+  assertDay(day);
+  const month = addMonths(day.slice(0, 7), months);
+  const [y, m] = month.split("-").map(Number) as [number, number];
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return `${month}-${String(Math.min(Number(day.slice(8)), lastDay)).padStart(2, "0")}`;
+}
+
 /** Parses "YYYY-MM", falling back to the current Indian month when invalid (report month picker). */
 export function parseMonthOr(value: string | null | undefined, now: Date): string {
   return value && /^\d{4}-(0[1-9]|1[0-2])$/.test(value) ? value : indianMonth(now);

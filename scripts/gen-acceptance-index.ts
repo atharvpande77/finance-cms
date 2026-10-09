@@ -27,8 +27,9 @@ type Group = { match: string; code: string; milestone: string; sub?: Record<stri
 /** Heading prefix → ID prefix and milestone. `sub` overrides the milestone per bold sub-heading. */
 const E2E_GROUPS: Group[] = [
   { match: "Sign-in, two-step", code: "E2E-AUTH", milestone: "M2" },
-  { match: "Article workflow (rules", code: "E2E-WF", milestone: "M3" },
-  { match: "Article workflow through the real pages", code: "E2E-UI", milestone: "M3" },
+  // M3 is split (M3a authoring and approvals, M3b release onwards); M3a IDs are in ID_OVERRIDES.
+  { match: "Article workflow (rules", code: "E2E-WF", milestone: "M3b" },
+  { match: "Article workflow through the real pages", code: "E2E-UI", milestone: "M3b" },
   { match: "Lead capture", code: "E2E-LEAD", milestone: "M4" },
   { match: "The seven calculators", code: "E2E-CALC", milestone: "M4" },
   { match: "First-party analytics", code: "E2E-AN", milestone: "M5" },
@@ -39,7 +40,12 @@ const E2E_GROUPS: Group[] = [
 
 const UNIT_GROUPS: Group[] = [
   { match: "Passwords, TOTP", code: "U-AUTH", milestone: "M2", sub: { "secret box": "M0" } },
-  { match: "Workflow permissions", code: "U-WF", milestone: "M3" },
+  {
+    match: "Workflow permissions",
+    code: "U-WF",
+    milestone: "M3b",
+    sub: { "institution side": "M3a", "abcfinance side": "M3a", "automated checks": "M3a" },
+  },
   { match: "Phone numbers, consent", code: "U-LEAD", milestone: "M4" },
   { match: "Calculator formulas", code: "U-CALC", milestone: "M4" },
   { match: "Revenue sharing", code: "U-FIN", milestone: "M7" },
@@ -60,6 +66,40 @@ const UNIT_GROUPS: Group[] = [
  * sooner (e.g. reader-side checks satisfiable with seeded live articles in M1).
  */
 const ID_OVERRIDES: Record<string, string> = {
+  // M3a: writing and approving up to Editing.
+  "E2E-WF-01": "M3a",
+  "E2E-WF-02": "M3a",
+  "E2E-WF-03": "M3a",
+  "E2E-WF-04": "M3a",
+  "E2E-WF-05": "M3a",
+  "E2E-WF-06": "M3a",
+  "E2E-WF-07": "M3a",
+  "E2E-WF-08": "M3a",
+  "E2E-WF-09": "M3a",
+  "E2E-WF-10": "M3a",
+  "E2E-WF-11": "M3a",
+  "E2E-WF-12": "M3a",
+  "E2E-WF-25": "M3a",
+  "E2E-WF-35": "M3a",
+  "E2E-WF-36": "M3a",
+  "E2E-WF-37": "M3a",
+  "E2E-WF-38": "M3a",
+  "E2E-WF-40": "M3a",
+  "E2E-UI-01": "M3a",
+  "E2E-UI-02": "M3a",
+  "E2E-UI-03": "M3a",
+  "E2E-UI-04": "M3a",
+  "E2E-UI-05": "M3a",
+  "E2E-UI-06": "M3a",
+  "E2E-UI-07": "M3a",
+  "E2E-UI-08": "M3a",
+  "E2E-UI-09": "M3a",
+  "E2E-UI-10": "M3a",
+  "E2E-UI-11": "M3a",
+  "E2E-UI-12": "M3a",
+  "E2E-UI-13": "M3a",
+  "E2E-UI-18": "M3a",
+  "E2E-UI-27": "M3a",
   "E2E-UI-20": "M1",
   "E2E-UI-21": "M1",
   "E2E-UI-22": "M1",
@@ -152,7 +192,12 @@ function coverage(): Map<string, string[]> {
   return found;
 }
 
-const milestoneNumber = (m: string) => Number(m.slice(1));
+/** "M3" → 3; sub-milestones sort inside it: "M3a" → 3.1, "M3b" → 3.2. */
+const milestoneNumber = (m: string) => {
+  const [, n, part] = /^M(\d+)([a-z])?$/.exec(m) ?? [];
+  if (n === undefined) throw new Error(`Bad milestone "${m}"`);
+  return Number(n) + (part ? (part.charCodeAt(0) - 96) / 10 : 0);
+};
 const escape = (s: string) => s.replace(/\|/g, "\\|");
 
 type CheckRef = Pick<Check, "id" | "milestone"> & Partial<Pick<Check, "text">>;
@@ -166,15 +211,16 @@ const args = process.argv.slice(2);
 const checkIdx = args.indexOf("--check");
 
 if (checkIdx >= 0) {
-  const upTo = milestoneNumber(args[checkIdx + 1] ?? "M0");
+  const target = args[checkIdx + 1] ?? "M0";
+  const upTo = milestoneNumber(target);
   const missing = checks.filter((c) => milestoneNumber(c.milestone) <= upTo && !covered.has(c.id));
   if (missing.length) {
-    console.error(`${missing.length} acceptance checks due by M${upTo} have no test:`);
+    console.error(`${missing.length} acceptance checks due by ${target} have no test:`);
     for (const c of missing) console.error(`  ${c.id} (${c.milestone}) ${c.text ?? ""}`);
     process.exit(1);
   }
   console.log(
-    `All ${checks.filter((c) => milestoneNumber(c.milestone) <= upTo).length} checks due by M${upTo} have tests.`,
+    `All ${checks.filter((c) => milestoneNumber(c.milestone) <= upTo).length} checks due by ${target} have tests.`,
   );
 } else {
   if (!haveSource)

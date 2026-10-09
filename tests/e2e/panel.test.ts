@@ -43,7 +43,8 @@ describe("panel shell", () => {
       for (const path of c.menu.slice(1)) {
         const res = await client.get(path);
         expect(res.status, `${c.name} ${path}`).toBe(200);
-        expect(res.text).toContain("data-area-stub");
+        // Areas not built yet are guarded placeholders.
+        if (path !== "/articles") expect(res.text).toContain("data-area-stub");
       }
       for (const path of c.refused) {
         const res = await client.get(path);

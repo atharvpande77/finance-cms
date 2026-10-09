@@ -160,3 +160,37 @@ would. The same-origin rule for form posts (06.1) is enforced twice:
 - `assertSameOrigin()` also pins `Origin` to `APP_URL`'s origin.
 
 Panel areas outside a person's roles answer **403** through `forbidden()` (`experimental.authInterrupts`).
+
+## D22. Concurrent edits are caught on saves too (2026-10-09, M3a)
+
+04.2 says that when two people act on the same version at once, exactly one succeeds and the
+other is told someone else changed it. We apply the rule to text saves as well as to workflow
+steps. Every form carries the version's `rev`, and each save or step is a single
+`UPDATE … WHERE rev = $rev AND state = $state`. A stale page gets "Someone else changed this
+article while you were looking at it. Reload to see their changes." and its text is kept.
+
+Lives in `src/server/articles/service.ts`.
+
+## D23. The web address (slug) is an editable field, fixed at the first release (2026-10-09, M3a, user decision)
+
+Marathi headlines don't make readable slugs, and transliteration would need a table to get
+right. The new-article form has a required "Web address" field (lower-case Latin letters, digits
+and single hyphens, 3–80 characters). It is filled in from a Latin-script headline until the
+writer edits it. All languages of an article share the slug. It can change until the article is
+first released (M3b), and then it is fixed, so published URLs never change.
+
+## D24. The byline is an author profile, and its type sets the article type (2026-10-09, M3a, user decision)
+
+Doc 03 has `Article.author` and `Article.type` but doesn't say how a writer chooses them. The
+new-article form lists the author profiles the person may write under:
+- institution writers and admins: their institution's authors, giving an institution article;
+- abcfinance writers and editors: staff authors (an abcfinance article) or independent experts
+  (an independent article).
+
+Author profiles aren't tied to user accounts, which matches the seed.
+
+## D25. An article you may not see answers 404 (2026-10-09, M3a)
+
+Opening another institution's article gives the same "not found" as an article that doesn't
+exist, so ids can't be probed. Areas outside a person's roles still answer 403 (D21), because
+the menu already tells them the area exists.

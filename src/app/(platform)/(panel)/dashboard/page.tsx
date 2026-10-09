@@ -6,8 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { PageHeader } from "@/components/panel/PageHeader";
 import { requireUser } from "@/server/auth/current";
 import { recentActivity } from "@/server/auth/activity";
+import { waitingFor } from "@/server/articles/queries";
+import { LANGUAGE_NAMES } from "@/components/panel/articleLabels";
 import { activityLabel, isWarning } from "@/domain/activity";
 import { ROLE_LABELS, type Role } from "@/domain/roles";
+import { STATE_LABELS } from "@/domain/workflow";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -23,7 +26,7 @@ const when = new Intl.DateTimeFormat("en-IN", {
 
 export default async function DashboardPage() {
   const s = await requireUser();
-  const activity = await recentActivity(s.user.id);
+  const [activity, waiting] = await Promise.all([recentActivity(s.user.id), waitingFor(s)]);
 
   const orgs = new Map<string, { name: string; kind: string; roles: Role[] }>();
   for (const m of s.memberships) {
@@ -46,10 +49,31 @@ export default async function DashboardPage() {
             <CardDescription>Articles and decisions that need your action.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center gap-3 rounded-lg bg-muted/60 px-4 py-5 text-sm text-muted-foreground">
-              <Inbox className="size-4 shrink-0" strokeWidth={1.75} aria-hidden />
-              Nothing needs your attention right now.
-            </div>
+            {waiting.length === 0 ? (
+              <div className="flex items-center gap-3 rounded-lg bg-muted/60 px-4 py-5 text-sm text-muted-foreground">
+                <Inbox className="size-4 shrink-0" strokeWidth={1.75} aria-hidden />
+                Nothing needs your attention right now.
+              </div>
+            ) : (
+              <ul className="-mx-2 grid" data-waiting>
+                {waiting.map((w) => (
+                  <li key={w.versionId}>
+                    <Link
+                      href={`/articles/${w.articleId}/${w.language}`}
+                      className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md px-2 py-2.5 transition-colors duration-150 hover:bg-accent"
+                    >
+                      <span className="min-w-0 flex-1 basis-56 font-medium text-pretty">
+                        {w.headline || "Untitled"}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {STATE_LABELS[w.state]} · {LANGUAGE_NAMES[w.language] ?? w.language} ·{" "}
+                        {w.organisationName}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
 

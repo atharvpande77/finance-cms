@@ -122,15 +122,18 @@ export class HttpClient {
   /**
    * Opens `url`, finds `<form data-form="name">`, and submits it the way a browser without
    * JavaScript would: multipart, with the form's hidden inputs (including Next's `$ACTION_*`
-   * fields) plus `fields`, and an Origin header from the panel. Redirects are not followed.
+   * fields) plus `fields` (an array gives several values, like ticked checkboxes), and an Origin
+   * header from the panel. Redirects are not followed.
    */
   async submitForm(
     url: string,
     name: string,
-    fields: Record<string, string> = {},
-    opts: { origin?: string } = {},
+    fields: Record<string, string | string[]> = {},
+    opts: { origin?: string; page?: HttpResponse } = {},
   ): Promise<HttpResponse> {
-    const page = await this.get(url);
+    // `page` submits a form from a page loaded earlier: a stale tab, or a form replayed by
+    // someone else (the action ids are the same for everyone).
+    const page = opts.page ?? (await this.get(url));
     const form = parse(page.text).querySelector(`form[data-form="${name}"]`);
     if (!form) {
       throw new Error(`No form "${name}" on ${url} (status ${page.status}, at ${page.location})`);
@@ -140,7 +143,10 @@ export class HttpClient {
       const key = input.getAttribute("name");
       if (key) data.append(key, input.getAttribute("value") ?? "");
     }
-    for (const [key, value] of Object.entries(fields)) data.set(key, value);
+    for (const [key, value] of Object.entries(fields)) {
+      data.delete(key);
+      for (const v of Array.isArray(value) ? value : [value]) data.append(key, v);
+    }
     const encoded = new Response(data);
     const target = new URL(form.getAttribute("action") || url, new URL(url, PANEL_ORIGIN));
     return this.request("POST", target.toString(), {
