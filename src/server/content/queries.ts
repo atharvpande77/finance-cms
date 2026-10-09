@@ -34,6 +34,7 @@ const copyColumns = {
   authorCredentials: au.credentials,
   authorAffiliations: au.disclosedAffiliations,
   authorType: au.contributorType,
+  orgId: o.id,
   orgSlug: o.slug,
   orgName: o.name,
   orgType: o.type,
@@ -60,6 +61,7 @@ export type PublishedCopy = {
   authorCredentials: Record<string, string> | null;
   authorAffiliations: string[] | null;
   authorType: "staff" | "institution" | "independent" | null;
+  orgId: string;
   orgSlug: string;
   orgName: string;
   orgType: "institution" | "publisher" | "abcfinance";

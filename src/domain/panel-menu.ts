@@ -50,7 +50,6 @@ const AREAS: readonly (MenuItem & { allowed: (ms: readonly Membership[]) => bool
     area: "calculators",
     href: "/calculators",
     label: "Calculator rates",
-    arrives: "M4",
     allowed: (ms) => can(ms, "rates.edit") || can(ms, "rates.edit.defaults"),
   },
   {

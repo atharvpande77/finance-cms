@@ -30,8 +30,9 @@ const E2E_GROUPS: Group[] = [
   // M3 is split (M3a authoring and approvals, M3b release onwards); M3a IDs are in ID_OVERRIDES.
   { match: "Article workflow (rules", code: "E2E-WF", milestone: "M3b" },
   { match: "Article workflow through the real pages", code: "E2E-UI", milestone: "M3b" },
-  { match: "Lead capture", code: "E2E-LEAD", milestone: "M4" },
-  { match: "The seven calculators", code: "E2E-CALC", milestone: "M4" },
+  // M4 is split (M4a calculators and rates, M4b leads).
+  { match: "Lead capture", code: "E2E-LEAD", milestone: "M4b" },
+  { match: "The seven calculators", code: "E2E-CALC", milestone: "M4a" },
   { match: "First-party analytics", code: "E2E-AN", milestone: "M5" },
   { match: "Newspaper widgets", code: "E2E-WID", milestone: "M8" },
   { match: "Ad layout", code: "E2E-ADS", milestone: "M9" },
@@ -46,8 +47,8 @@ const UNIT_GROUPS: Group[] = [
     milestone: "M3b",
     sub: { "institution side": "M3a", "abcfinance side": "M3a", "automated checks": "M3a" },
   },
-  { match: "Phone numbers, consent", code: "U-LEAD", milestone: "M4" },
-  { match: "Calculator formulas", code: "U-CALC", milestone: "M4" },
+  { match: "Phone numbers, consent", code: "U-LEAD", milestone: "M4b" },
+  { match: "Calculator formulas", code: "U-CALC", milestone: "M4a" },
   { match: "Revenue sharing", code: "U-FIN", milestone: "M7" },
   { match: "Bot filter, India-time", code: "U-AN", milestone: "M5", sub: { dates: "M0" } },
   { match: "Widget settings", code: "U-WID", milestone: "M8" },
@@ -66,6 +67,8 @@ const UNIT_GROUPS: Group[] = [
  * sooner (e.g. reader-side checks satisfiable with seeded live articles in M1).
  */
 const ID_OVERRIDES: Record<string, string> = {
+  // A sponsored calculator's lead call-to-action needs the lead form (M4b).
+  "E2E-CALC-15": "M4b",
   // M3a: writing and approving up to Editing.
   "E2E-WF-01": "M3a",
   "E2E-WF-02": "M3a",

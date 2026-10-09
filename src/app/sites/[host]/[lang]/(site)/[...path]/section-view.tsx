@@ -4,7 +4,7 @@ import { pick, t } from "@/domain/i18n";
 import { calculatorBySlug } from "@/domain/calc/catalog";
 import { disclaimerText, listPublished, sectionBySlug } from "@/server/content/queries";
 import { ArticleCard } from "@/components/reader/ArticleCard";
-import { CalculatorPlaceholder } from "@/components/reader/CalculatorPlaceholder";
+import { CalculatorBlock } from "@/components/reader/calculators/CalculatorBlock";
 import { Disclaimer } from "@/components/reader/Disclaimer";
 import { getSite, pageMetadata } from "@/app/sites/site";
 
@@ -56,7 +56,13 @@ export async function SectionView({ host, lang, section: slug }: SectionParams) 
 
         <aside className="grid content-start gap-4">
           {calculators.map((c) => (
-            <CalculatorPlaceholder key={c.slug} calculator={c} site={site} embedded />
+            <CalculatorBlock
+              key={c.slug}
+              site={site}
+              slug={c.slug}
+              context={{ kind: "section_page", sectionSlug: section.slug }}
+              embedded
+            />
           ))}
           <Disclaimer text={disclaimer} lang={lang} />
         </aside>

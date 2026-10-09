@@ -12,7 +12,9 @@ times: rows that already exist (matched by slug, email or name) are left alone.
 - **Institutions:** Sample AMC, Sample General Insurer, and Sample Life Insurer (no users; holds the
   life-insurance category exclusively).
 - **Sections:** the 8 sections with their disclaimer keys (04.5).
-- **Users:** the 15 accounts `<name>@demo.abcfinance.test`, password `Demo-Pass-2026`.
+- **Users:** the 15 accounts `<name>@demo.abcfinance.test`, password `Demo-Pass-2026`, plus
+  `admin.li` (account admin of Sample Life Insurer, added in M4 so its leads and rates have
+  someone to see them).
 - **Sponsorships:**
   - SIP (mutual funds): AMC.
   - Health and motor: General Insurer.
@@ -83,6 +85,18 @@ master ("With publisher") and one waiting copy per paper. The text is invented.
 
 The deadlines are counted from seed time, so `corepack pnpm db:reset` re-arms them. Paper B's
 copy carries a release note for its editor.
+
+## Calculators (M4a)
+
+| Calculator                            | Sponsor (from the sponsorships above)             |
+| ------------------------------------- | ------------------------------------------------- |
+| SIP                                   | Sample AMC                                        |
+| Health cover, motor premium           | Sample General Insurer                            |
+| Term cover                            | Sample Life Insurer (exclusive in life insurance) |
+| EMI, home loan eligibility, gold loan | none (abcfinance's rates apply)                   |
+
+No rates are seeded: every calculator starts on the built-in defaults dated 1 October 2026. The
+ranges and reader defaults are ours (D32), in `src/domain/calc/fields.ts`.
 
 ## Still to add
 

@@ -68,3 +68,8 @@ html {
 .article-body a:hover {
   text-decoration-thickness: 2px;
 }
+
+/* Calculator sliders take the paper's colour. */
+.calc-range {
+  accent-color: var(--t-primary);
+}

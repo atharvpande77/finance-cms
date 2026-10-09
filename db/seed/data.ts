@@ -464,6 +464,13 @@ export const users: Array<{ handle: string; name: string; org: OrgSlug; roles: R
     roles: ["institution_account_admin"],
   },
   {
+    // Not in TESTING.md: the Life Insurer's leads and rates need someone to see them (M4).
+    handle: "admin.li",
+    name: "Lena Admin (Life Insurer)",
+    org: "sample-life-insurer",
+    roles: ["institution_account_admin"],
+  },
+  {
     handle: "writer.abc",
     name: "Bina Writer (abcfinance)",
     org: "abcfinance",

@@ -37,6 +37,8 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm test:int
+      - name: Browser for the calculator smoke test
+        run: pnpm exec playwright install --with-deps --only-shell chromium
       - run: pnpm test:e2e
       - name: Acceptance checks due so far have tests
         run: pnpm tsx scripts/gen-acceptance-index.ts --check "$(cat tests/acceptance/MILESTONE)"

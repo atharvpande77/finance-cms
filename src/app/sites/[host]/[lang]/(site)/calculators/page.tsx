@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { t } from "@/domain/i18n";
 import { CALCULATORS } from "@/domain/calc/catalog";
-import { CalculatorPlaceholder } from "@/components/reader/CalculatorPlaceholder";
+import { CalculatorCard } from "@/components/reader/CalculatorCard";
 import { getSite, pageMetadata } from "@/app/sites/site";
 
 type Props = { params: Promise<{ host: string; lang: string }> };
@@ -27,7 +27,7 @@ export default async function CalculatorsPage({ params }: Props) {
               href={site.path(`/calculators/${c.slug}`)}
               className="block h-full rounded-xl transition-shadow duration-150 hover:shadow-card-hover"
             >
-              <CalculatorPlaceholder calculator={c} site={site} />
+              <CalculatorCard calculator={c} site={site} />
             </a>
           </li>
         ))}

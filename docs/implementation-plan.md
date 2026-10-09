@@ -132,7 +132,9 @@ is the largest milestone, at about 90 checks.
   (D27). Page caching moved to M6 behind a `contentChanged()` hook (D26). The mail outbox sender
   was already wired into cron in M0.
 
-**M4. Calculators and leads** (04.6–4.7, 06.4–6.5)
+**M4. Calculators and leads** (04.6–4.7, 06.4–6.5; plan: `docs/plans/m4-calculators-leads.md`).
+Split in two (2026-10-09): **M4a** calculators, sponsor rates and branding (D32–D34); **M4b**
+lead capture and the sponsor inbox.
 - The 7 formulas in `domain/calc/` with doc-04 defaults, lakh/crore wording (en/mr), "how this is worked out", "rates as of" date, and React client components embedded with `{{calc:slug}}` plus `/calculators/<slug>` pages.
 - Rate precedence (sponsor → abcfinance → built-in), the rates panel with range validation, "as of" date rules, reset, and audit.
 - Branding matrix: institution article / sponsored / exclusive category / independent expert.

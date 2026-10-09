@@ -13,12 +13,22 @@ import {
   type PublishedCopy,
 } from "@/server/content/queries";
 import { ArticleBody } from "@/components/reader/ArticleBody";
-import { CalculatorPlaceholder } from "@/components/reader/CalculatorPlaceholder";
+import { CalculatorBlock } from "@/components/reader/calculators/CalculatorBlock";
+import type { BrandContext } from "@/domain/sponsor";
 import { ArticleCard } from "@/components/reader/ArticleCard";
 import { ArticleLabel } from "@/components/reader/Labels";
 import { Disclaimer } from "@/components/reader/Disclaimer";
 import { JsonLd } from "@/components/reader/JsonLd";
 import { approvalLine, getSite, pageMetadata, type Site } from "@/app/sites/site";
+
+/** Where an embedded calculator sits, for its branding (04.7). */
+function brandContext(copy: PublishedCopy): BrandContext {
+  if (copy.type === "institution") {
+    return { kind: "institution_article", orgId: copy.orgId, sectionSlug: copy.sectionSlug };
+  }
+  if (copy.type === "independent") return { kind: "independent_article" };
+  return { kind: "abcfinance_article", sectionSlug: copy.sectionSlug };
+}
 
 export type ArticleParams = { host: string; lang: string; section: string; slug: string };
 
@@ -139,7 +149,7 @@ export async function ArticleView(params: ArticleParams) {
             articleType={copy.type}
             linkHosts={site.tenant.hosts}
             renderCalculator={(calc) => (
-              <CalculatorPlaceholder calculator={calc} site={site} embedded />
+              <CalculatorBlock site={site} slug={calc.slug} context={brandContext(copy)} embedded />
             )}
           />
         </div>

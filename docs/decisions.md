@@ -242,3 +242,45 @@ an article is released, a typo cannot be fixed in place: the paper's editor take
 and the article is written again as a new one. Corrections (a new version replacing a live copy)
 can be a later feature if the papers need it. **To confirm with the business.**
 
+## D32. Calculator ranges and reader defaults are ours (2026-10-09, M4a)
+
+04.7 gives the formulas and default rates, and says every editable field has an allowed range,
+but gives no ranges and no starting values for the reader's inputs. We define them in
+`src/domain/calc/fields.ts`:
+- **reader defaults** reproduce doc 08's scenarios (a ₹20 lakh loan over 20 years; ₹5,000 a month
+  for 10 years; 50 g of 22 K gold; a car of 1000–1500 cc, 3 years old, IDV ₹5 lakh, 3 claim-free
+  years; a family of two adults and a child led by a 35-year-old in a large city; a 35-year-old
+  earning ₹10 lakh with two dependants);
+- **ranges** are wide enough for real use and narrow enough to refuse typing mistakes (for
+  example an interest rate of 1–30%, a loan-to-value of 10–85%);
+- the built-in rates are dated **1 October 2026** ("rates as of").
+
+All rates stay placeholders until each sponsor confirms its own (09.3 #13). The Marathi labels
+are a first draft (D10).
+
+## D33. Rate precedence works per saved row, and rates follow the brand (2026-10-09, M4a)
+
+04.7's precedence (the sponsor's saved rates, else abcfinance's, else built-in) is applied per
+calculator row: the first organisation with a saved row supplies all its figures and its "as
+of" date, and any saved figure that is out of range falls back to the built-in one. The
+organisation whose rates apply is always the one whose brand is shown, so an unbranded
+calculator (an independent expert's article, or one suppressed by exclusivity, D34) uses
+abcfinance's rates, never a sponsor's. "Reset to standard defaults" deletes the organisation's
+row. A save or reset shows at once (pages render per request, D26) and calls the
+`ratesChanged()` hook.
+
+## D34. Calculator sponsor and exclusivity (2026-10-09, M4a, user decision)
+
+The handover doesn't say which sponsorship wins when a calculator sits in several sections, or
+what happens in an exclusive category to another institution's own article. We decide, in one
+function (`src/domain/sponsor.ts`):
+- a calculator's sponsor is an active sponsorship (started, not ended, India dates) of a section
+  that lists it: the page's own section first, then an exclusive sponsorship, then the earliest
+  start;
+- an institution's article shows only that institution's brand ("Calculator by …") and its rates;
+- an independent expert's article shows no sponsor;
+- an abcfinance article, a section page and a calculator's own page show "Sponsored by …";
+- **exclusivity wins inside its section**: any other sponsor's calculator there is unbranded,
+  with no lead call-to-action and abcfinance's rates. This applies even on another institution's
+  own article in that section; the article's end-of-article lead form for its author stays (M4b).
+

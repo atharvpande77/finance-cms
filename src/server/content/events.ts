@@ -8,3 +8,9 @@ export async function contentChanged(_change: {
   tenantIds: readonly string[];
   articleId: string;
 }): Promise<void> {}
+
+/** Called when an organisation's calculator rates are saved or reset (same plan as above). */
+export async function ratesChanged(_change: {
+  organisationId: string;
+  calculatorSlug: string;
+}): Promise<void> {}
