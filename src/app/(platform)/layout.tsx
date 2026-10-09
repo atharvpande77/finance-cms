@@ -10,7 +10,9 @@ export const metadata: Metadata = {
 export default function PlatformLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      {/* Extensions such as Grammarly add attributes to <body> before React hydrates. This
+          silences mismatches on <body>'s own attributes only, not on its children. */}
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }
