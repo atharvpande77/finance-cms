@@ -2,6 +2,7 @@ import { and, isNull, lt, lte } from "drizzle-orm";
 import { db, schema } from "@/server/db/client";
 import { sendQueued } from "@/server/mail/outbox";
 import { pruneRateLimits } from "@/server/ratelimit";
+import { pruneExpiredSessions } from "@/server/auth/sessions";
 
 /** Per-view tracking rows are kept 30 days (doc 06.4). */
 const PAGE_VIEW_RETENTION_DAYS = 30;
@@ -22,6 +23,7 @@ export async function runScheduledJob(now = new Date()): Promise<JobResult> {
   const purgedLeads = await eraseExpiredLeads(now);
   const prunedViews = await prunePageViews(now);
   await pruneRateLimits();
+  await pruneExpiredSessions();
   const mail = await sendQueued();
   return { published, purgedLeads, prunedViews, mail };
 }

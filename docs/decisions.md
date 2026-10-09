@@ -104,3 +104,59 @@ TESTING.md walk-through URLs under `tarunbharat.localhost:3000/en/...` don't app
 are unprefixed in Marathi, and the English cases live on `paperb.localhost:3000`. Phase 1's "at
 least two languages" is still met across papers. Languages are tenant data: re-enabling English
 means adding `en` to the row, with no deploy.
+
+## D15. One failure counter for passwords and codes, reset only by a finished sign-in (2026-10-09, M2)
+
+04.12 locks an account after 5 wrong passwords **or codes**. A correct password alone doesn't
+reset the count. If it did, someone who knew the password could try 4 codes, sign in again and
+try 4 more, forever. The count resets only when sign-in completes (the password, plus a code where
+one applies). The fifth failure locks the account for 15 minutes and starts the count again.
+
+Wrong codes on the **set-up** page don't count toward the lock: the person has just proved their
+password and is scanning a brand-new key. Instead, those codes are limited to 10 per person per
+15 minutes.
+
+Lives in `recordFailure()` (`src/server/auth/signin.ts`) and `src/server/auth/twostep.ts`.
+
+## D16. The lock message doesn't reveal which emails have accounts (2026-10-09, M2)
+
+A locked account says "Too many attempts. This account is locked for 15 minutes." Unknown emails
+"lock" after the same 5 tries (counted in the rate-limit table under a keyed hash). The message
+therefore can't be used to find real accounts. A locked account still runs one scrypt check, so
+it takes the same time as any other attempt.
+
+## D17. Per-address sign-in limit: 20 posts per 15 minutes (2026-10-09, M2, user decision)
+
+The docs give no figure for this limit (gap 06.7 #1). Password and code posts from one address
+share a budget of 20 per 15 minutes. This leaves room for a newsroom behind one office address
+and stops spraying across accounts. The counter is in Postgres (D6), and the address is nginx's
+`X-Real-IP`.
+
+## D18. Session cookie security follows `APP_URL` (2026-10-09, M2)
+
+06.1 says "Secure in production". We set `Secure` whenever `APP_URL` is https, and name the cookie
+`__Host-abc_session`, so browsers also refuse a `Domain` or a non-root path. Over http (local
+development, and the e2e suite, which runs a production build on `http://localhost:3100`) it is
+plain `abc_session` without `Secure`.
+
+## D19. A new session token once two-step is done (2026-10-09, M2)
+
+After the password, the session is stored with `mfaVerified = false`. When the code is accepted,
+that session is replaced by a new one (new token, same expiry). A token seen before the second
+step is never a fully signed-in one.
+
+## D20. Change password arrives in M2 (2026-10-09, user decision)
+
+`/account/password` is on every role's menu, and it is the first user of the password policy, so
+it moved from M5 into M2 with its checks (E2E-USR-89…97, U-USR email and password rules). The rest
+of user management stays in M5.
+
+## D21. Panel forms are Server Actions (2026-10-09, M2, user decision)
+
+As in the reference (doc 10, `actions/*.ts`), every panel command is a Server Action. Forms work
+without JavaScript and are tested over HTTP: the e2e client's `submitForm()` posts them as a browser
+would. The same-origin rule for form posts (06.1) is enforced twice:
+- Next refuses an action whose `Origin` differs from the host;
+- `assertSameOrigin()` also pins `Origin` to `APP_URL`'s origin.
+
+Panel areas outside a person's roles answer **403** through `forbidden()` (`experimental.authInterrupts`).

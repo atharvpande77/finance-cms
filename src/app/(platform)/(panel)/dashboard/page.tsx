@@ -1,0 +1,135 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { Inbox, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/panel/PageHeader";
+import { requireUser } from "@/server/auth/current";
+import { recentActivity } from "@/server/auth/activity";
+import { activityLabel, isWarning } from "@/domain/activity";
+import { ROLE_LABELS, type Role } from "@/domain/roles";
+
+export const metadata: Metadata = { title: "Dashboard" };
+
+const ORG_KIND = { institution: "Institution", publisher: "Newspaper", abcfinance: "abcfinance" };
+
+const when = new Intl.DateTimeFormat("en-IN", {
+  day: "numeric",
+  month: "short",
+  hour: "numeric",
+  minute: "2-digit",
+  timeZone: "Asia/Kolkata",
+});
+
+export default async function DashboardPage() {
+  const s = await requireUser();
+  const activity = await recentActivity(s.user.id);
+
+  const orgs = new Map<string, { name: string; kind: string; roles: Role[] }>();
+  for (const m of s.memberships) {
+    const org = orgs.get(m.organisationId) ?? {
+      name: m.organisationName,
+      kind: ORG_KIND[m.organisationType],
+      roles: [],
+    };
+    org.roles.push(m.role);
+    orgs.set(m.organisationId, org);
+  }
+
+  return (
+    <>
+      <PageHeader title={`Welcome, ${s.user.name.split(" ")[0]}`} />
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle>Waiting for you</CardTitle>
+            <CardDescription>Articles and decisions that need your action.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-3 rounded-lg bg-muted/60 px-4 py-5 text-sm text-muted-foreground">
+              <Inbox className="size-4 shrink-0" strokeWidth={1.75} aria-hidden />
+              Nothing needs your attention right now.
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Your roles</CardTitle>
+            <CardDescription>What you can do, by organisation.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {orgs.size === 0 ? (
+              <p className="text-sm text-muted-foreground">You have no roles yet.</p>
+            ) : (
+              <ul className="grid gap-4" data-roles>
+                {[...orgs].map(([id, org]) => (
+                  <li key={id} className="grid gap-2">
+                    <p className="text-sm">
+                      <span className="font-medium">{org.name}</span>{" "}
+                      <span className="text-muted-foreground">· {org.kind}</span>
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {org.roles.map((r) => (
+                        <Badge key={r} variant="secondary" data-role={r}>
+                          {ROLE_LABELS[r]}
+                        </Badge>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="mt-6 flex items-center gap-2 border-t pt-4 text-sm">
+              {s.user.totpEnabled ? (
+                <>
+                  <ShieldCheck className="size-4 text-success" strokeWidth={1.75} aria-hidden />
+                  <span>Two-step verification is on</span>
+                </>
+              ) : (
+                <>
+                  <ShieldAlert
+                    className="size-4 text-muted-foreground"
+                    strokeWidth={1.75}
+                    aria-hidden
+                  />
+                  <span className="text-muted-foreground">Two-step verification is off.</span>
+                  <Link
+                    href="/account/security"
+                    className="font-medium text-primary hover:underline"
+                  >
+                    Turn it on
+                  </Link>
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent activity</CardTitle>
+            <CardDescription>Sign-ins and changes to your account.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ol className="grid gap-3" data-activity>
+              {activity.map((e) => (
+                <li key={e.id} className="flex items-baseline justify-between gap-4 text-sm">
+                  <span className={isWarning(e.action) ? "text-destructive" : undefined}>
+                    {activityLabel(e.action)}
+                  </span>
+                  <time
+                    dateTime={e.createdAt.toISOString()}
+                    className="shrink-0 text-xs text-muted-foreground tabular-nums"
+                  >
+                    {when.format(e.createdAt)}
+                  </time>
+                </li>
+              ))}
+            </ol>
+          </CardContent>
+        </Card>
+      </div>
+    </>
+  );
+}

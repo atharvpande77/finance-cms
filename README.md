@@ -13,12 +13,12 @@ and `docs/abcfinance-phase1-spec.pdf` (all gitignored). The plan is in
 
 ## Status
 
-| Milestone | State |
-| --- | --- |
-| M0 Foundations: schema, crypto, jobs, seed, test harness, CI, deploy files | done |
-| M1 Tenancy and reader site: host routing, themes, Marathi and English, SEO, sitemap and robots | done |
-| M2 Identity and panel shell | next |
-| M3–M10 | see the plan |
+| Milestone                                                                                      | State        |
+| ---------------------------------------------------------------------------------------------- | ------------ |
+| M0 Foundations: schema, crypto, jobs, seed, test harness, CI, deploy files                     | done         |
+| M1 Tenancy and reader site: host routing, themes, Marathi and English, SEO, sitemap and robots | done         |
+| M2 Identity and panel shell                                                                    | next         |
+| M3–M10                                                                                         | see the plan |
 
 Acceptance-check coverage: run `corepack pnpm acceptance:index` (needs the local handover docs) to
 write `tests/acceptance/INDEX.md`.
@@ -42,21 +42,25 @@ http://paperc.localhost:3000. Chrome and Edge resolve `*.localhost` without setu
 Demo accounts are `<name>@demo.abcfinance.test` with password `Demo-Pass-2026`. The names are in
 `db/seed/data.ts`. To start over, run `corepack pnpm db:reset`.
 
+Every role except the two writer roles needs two-step verification. The first sign-in shows a QR
+code to scan with an authenticator app. Without one, open the set-up page once, then print the
+current code with `npx tsx scripts/totp.ts approver.amc` (development databases only).
+
 > **WSL:** if `pnpm` on your PATH is the Windows build, call it as `corepack pnpm`.
 
 ## Scripts
 
-| Script | What it does |
-| --- | --- |
-| `dev`, `build`, `start` | Next.js |
-| `lint`, `typecheck` | ESLint and `tsc` |
-| `test` | Unit tests (pure rules, no database) |
-| `test:int` | Integration tests against the `abcfinance_test` database |
-| `test:e2e` | Builds the app, starts it on port 3100 against the test database, and drives it over HTTP |
-| `db:up`, `db:down` | Start and stop the dev database container |
-| `db:generate` | New migration from changes to `src/server/db/schema.ts` |
-| `db:migrate`, `db:seed`, `db:reset` | Apply migrations, load the demo world, drop everything and reload |
-| `acceptance:index` | Write `tests/acceptance/INDEX.md` (local only) and `checks.json` from doc 08 and the test titles |
+| Script                              | What it does                                                                                     |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `dev`, `build`, `start`             | Next.js                                                                                          |
+| `lint`, `typecheck`                 | ESLint and `tsc`                                                                                 |
+| `test`                              | Unit tests (pure rules, no database)                                                             |
+| `test:int`                          | Integration tests against the `abcfinance_test` database                                         |
+| `test:e2e`                          | Builds the app, starts it on port 3100 against the test database, and drives it over HTTP        |
+| `db:up`, `db:down`                  | Start and stop the dev database container                                                        |
+| `db:generate`                       | New migration from changes to `src/server/db/schema.ts`                                          |
+| `db:migrate`, `db:seed`, `db:reset` | Apply migrations, load the demo world, drop everything and reload                                |
+| `acceptance:index`                  | Write `tests/acceptance/INDEX.md` (local only) and `checks.json` from doc 08 and the test titles |
 
 ## Layout
 

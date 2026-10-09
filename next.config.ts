@@ -7,6 +7,8 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Postgres driver and mailer stay as Node externals.
   serverExternalPackages: ["postgres", "nodemailer"],
+  // forbidden() for panel areas outside a person's roles.
+  experimental: { authInterrupts: true },
 };
 
 export default nextConfig;

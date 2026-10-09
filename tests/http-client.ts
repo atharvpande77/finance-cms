@@ -1,4 +1,5 @@
 import http from "node:http";
+import { parse } from "node-html-parser";
 
 /**
  * A cookie-keeping HTTP client for end-to-end tests: one instance per simulated person.
@@ -28,7 +29,7 @@ export class HttpClient {
   async request(
     method: string,
     url: string,
-    init: { body?: string | URLSearchParams; headers?: Record<string, string> } = {},
+    init: { body?: string | URLSearchParams | Buffer; headers?: Record<string, string> } = {},
   ): Promise<HttpResponse> {
     const target = new URL(url, PANEL_ORIGIN);
     // node:http, not fetch: fetch silently replaces a custom Host header, and every
@@ -40,7 +41,7 @@ export class HttpClient {
     };
     const cookie = [...this.cookies].map(([k, v]) => `${k}=${v}`).join("; ");
     if (cookie) headers.cookie = cookie;
-    const body = init.body?.toString();
+    const body = Buffer.isBuffer(init.body) ? init.body : init.body?.toString();
     if (init.body instanceof URLSearchParams) {
       headers["content-type"] = "application/x-www-form-urlencoded";
     }
@@ -117,4 +118,42 @@ export class HttpClient {
   cookie(name: string): string | undefined {
     return this.cookies.get(name);
   }
+
+  /**
+   * Opens `url`, finds `<form data-form="name">`, and submits it the way a browser without
+   * JavaScript would: multipart, with the form's hidden inputs (including Next's `$ACTION_*`
+   * fields) plus `fields`, and an Origin header from the panel. Redirects are not followed.
+   */
+  async submitForm(
+    url: string,
+    name: string,
+    fields: Record<string, string> = {},
+    opts: { origin?: string } = {},
+  ): Promise<HttpResponse> {
+    const page = await this.get(url);
+    const form = parse(page.text).querySelector(`form[data-form="${name}"]`);
+    if (!form) {
+      throw new Error(`No form "${name}" on ${url} (status ${page.status}, at ${page.location})`);
+    }
+    const data = new FormData();
+    for (const input of form.querySelectorAll('input[type="hidden"]')) {
+      const key = input.getAttribute("name");
+      if (key) data.append(key, input.getAttribute("value") ?? "");
+    }
+    for (const [key, value] of Object.entries(fields)) data.set(key, value);
+    const encoded = new Response(data);
+    const target = new URL(form.getAttribute("action") || url, new URL(url, PANEL_ORIGIN));
+    return this.request("POST", target.toString(), {
+      body: Buffer.from(await encoded.arrayBuffer()),
+      headers: {
+        "content-type": encoded.headers.get("content-type")!,
+        origin: opts.origin ?? new URL(url, PANEL_ORIGIN).origin,
+      },
+    });
+  }
+}
+
+/** Visible text of an HTML page, for assertions that shouldn't depend on markup. */
+export function pageText(html: string): string {
+  return parse(html).querySelector("body")?.textContent.replace(/\s+/g, " ") ?? "";
 }

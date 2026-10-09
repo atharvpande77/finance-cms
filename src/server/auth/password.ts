@@ -1,10 +1,10 @@
 import { randomBytes, scrypt as scryptCb, timingSafeEqual, type ScryptOptions } from "node:crypto";
+import { MAX_PASSWORD_LENGTH } from "@/domain/password-policy";
 
 // scrypt N=16384, r=8, p=1, 16-byte salt, 64-byte key (doc 06.1).
 const PARAMS = { N: 16384, r: 8, p: 1 } as const;
 const KEY_LENGTH = 64;
-/** Inputs are capped so hashing cannot be abused with huge passwords (04.12). */
-export const MAX_PASSWORD_LENGTH = 200;
+/** Inputs are capped (MAX_PASSWORD_LENGTH) so hashing cannot be abused with huge passwords (04.12). */
 
 function scrypt(password: string, salt: Buffer, options: ScryptOptions): Promise<Buffer> {
   return new Promise((resolve, reject) =>

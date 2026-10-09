@@ -46,7 +46,13 @@ const UNIT_GROUPS: Group[] = [
   { match: "Bot filter, India-time", code: "U-AN", milestone: "M5", sub: { dates: "M0" } },
   { match: "Widget settings", code: "U-WID", milestone: "M8" },
   { match: "Ad rules", code: "U-ADS", milestone: "M9", sub: { "outbound links": "M1" } },
-  { match: "Emails, role rules", code: "U-USR", milestone: "M5" },
+  {
+    match: "Emails, role rules",
+    code: "U-USR",
+    milestone: "M5",
+    // Sign-in and change password (moved into M2, D20) need these two.
+    sub: { "email addresses": "M2", passwords: "M2" },
+  },
 ];
 
 /**
@@ -65,6 +71,16 @@ const ID_OVERRIDES: Record<string, string> = {
   "E2E-ADS-37": "M1",
   "E2E-AN-02": "M1",
   "U-ADS-10": "M1",
+  // Change password moved into M2 (D20).
+  "E2E-USR-89": "M2",
+  "E2E-USR-90": "M2",
+  "E2E-USR-91": "M2",
+  "E2E-USR-92": "M2",
+  "E2E-USR-93": "M2",
+  "E2E-USR-94": "M2",
+  "E2E-USR-95": "M2",
+  "E2E-USR-96": "M2",
+  "E2E-USR-97": "M2",
 };
 
 type Check = {
