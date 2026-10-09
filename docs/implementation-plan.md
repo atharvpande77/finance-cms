@@ -119,7 +119,8 @@ is the largest milestone, at about 90 checks.
   someone else changed it (D22).
 - "Your turn" markers and the dashboard's "Waiting for you".
 
-**M3b. Release, the publisher queue and deemed approval**
+**M3b. Release, the publisher queue and deemed approval** (plan:
+`docs/plans/m3b-release-publishing.md`; decisions D26–D31)
 - Release to several papers: language support check, skip papers that already have it, per-copy
   explicit-approval reasons (first 3 articles from an institution, a flagged check, held
   section), and a release-preview screen.
@@ -127,8 +128,9 @@ is the largest milestone, at about 90 checks.
   works on live copies). `publisher_admin` can view only.
 - Cron step for deemed approval (idempotent; concurrent human decisions win), the "publish
   anything past its window now" button, and review-due flags.
-- Mail outbox sender wired into cron; tag-based page caching purged on publish, takedown and edit
-  (D11).
+- abcfinance staff see every paper's queue read-only (D28). A taken-down article answers 404
+  (D27). Page caching moved to M6 behind a `contentChanged()` hook (D26). The mail outbox sender
+  was already wired into cron in M0.
 
 **M4. Calculators and leads** (04.6–4.7, 06.4–6.5)
 - The 7 formulas in `domain/calc/` with doc-04 defaults, lakh/crore wording (en/mr), "how this is worked out", "rates as of" date, and React client components embedded with `{{calc:slug}}` plus `/calculators/<slug>` pages.
@@ -157,6 +159,8 @@ is the largest milestone, at about 90 checks.
 - Content-Security-Policy and the security headers; `/dev/outbox` excluded from production builds; an internal security review against doc 06.
 - Real Tarun Bharat theme from their brand assets; Core Web Vitals checked on a real mid-range Android over 4G.
 - Real sponsor calculator rates entered.
+- Page caching, if measurements on the VPS call for it: fill in `contentChanged()` (D26), which
+  is already called on publish, hold and take-down.
 - Tarun Bharat set to `live`, the second paper onboarded (CNAME, tenant row, contract), and the first sponsor's plan and users invited.
 - **Gate:** one paying sponsor live on 2+ papers, articles indexed, leads arriving at the sponsor's inbox.
 

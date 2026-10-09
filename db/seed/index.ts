@@ -8,7 +8,7 @@ import { db, schema } from "@/server/db/client";
 import { hashPassword } from "@/server/auth/password";
 import * as data from "./data";
 import { articles as seedArticles } from "./articles";
-import { workflowArticles } from "./workflow";
+import { releasedArticles, SEED_WINDOW_HOURS, workflowArticles } from "./workflow";
 
 async function main() {
   const d = db();
@@ -211,7 +211,7 @@ async function main() {
           fromState: "with_publisher",
           toState: "published",
           actorLabel: "seed",
-          action: copy.approval === "explicit" ? "approve" : "deemed_approval",
+          action: copy.approval === "explicit" ? "approve" : "deemed_approve",
           createdAt: publishedAt,
         });
       }
@@ -274,6 +274,133 @@ async function main() {
           createdAt: at(step.hoursAgo),
         })),
       );
+    });
+  }
+
+  // Articles already with the newspapers (M3b): masters "With publisher" and waiting copies whose
+  // windows are set from seed time, so a reset re-arms them.
+  for (const a of releasedArticles) {
+    const [existing] = await d
+      .select({ id: schema.articles.id })
+      .from(schema.articles)
+      .where(eq(schema.articles.slug, a.slug));
+    if (existing) continue;
+    const at = (ms: number) => new Date(ms);
+    const releasedAt = (lang: string) =>
+      Math.min(
+        ...a.copies
+          .filter((c) => c.language === lang)
+          .map((c) =>
+            c.dueInHours !== undefined
+              ? now + (c.dueInHours - SEED_WINDOW_HOURS) * 3600_000
+              : now - c.releasedHoursAgo! * 3600_000,
+          ),
+      );
+    const first = Math.min(...a.masters.map((m) => releasedAt(m.language))) - 72 * 3600_000;
+    const reviewBy = at(first);
+    reviewBy.setUTCMonth(reviewBy.getUTCMonth() + 6);
+    await d.transaction(async (tx) => {
+      const [article] = await tx
+        .insert(schema.articles)
+        .values({
+          slug: a.slug,
+          type: a.type,
+          masterLanguage: a.masters[0]!.language,
+          organisationId: orgId(a.org),
+          authorId: authorRows.find((r) => r.slug === a.author)!.id,
+          sectionId: sectionRows.find((r) => r.slug === a.section)!.id,
+          reviewBy: reviewBy.toISOString().slice(0, 10),
+          createdById: userId(a.writer),
+          createdAt: at(first),
+        })
+        .returning();
+      await tx.insert(schema.articleTargets).values(
+        [...new Set(a.copies.map((c) => c.tenant))].map((t) => ({
+          articleId: article!.id,
+          tenantId: tenantId(t),
+        })),
+      );
+      for (const [i, m] of a.masters.entries()) {
+        const released = releasedAt(m.language);
+        const started = first + i * 3600_000;
+        const [master] = await tx
+          .insert(schema.articleVersions)
+          .values({
+            articleId: article!.id,
+            language: m.language,
+            headline: m.headline,
+            summary: m.summary,
+            body: m.body,
+            state: "with_publisher",
+            rev: a.path.length + 1,
+            createdAt: at(started),
+            updatedAt: at(released),
+          })
+          .returning();
+        // Create (or add the language), each approval step a few hours apart, then release.
+        let from: "draft" | "in_approval" | "compliance_review" | "editing" = "draft";
+        const events: (typeof schema.workflowEvents.$inferInsert)[] = [
+          {
+            versionId: master!.id,
+            fromState: null,
+            toState: "draft",
+            userId: userId(a.writer),
+            action: i === 0 ? "create" : "add_language",
+            createdAt: at(started),
+          },
+        ];
+        for (const [j, step] of a.path.entries()) {
+          events.push({
+            versionId: master!.id,
+            fromState: from,
+            toState: step.to,
+            userId: userId(step.by),
+            action: step.action,
+            createdAt: at(started + (j + 1) * 6 * 3600_000),
+          });
+          from = step.to;
+        }
+        events.push({
+          versionId: master!.id,
+          fromState: "editing",
+          toState: "with_publisher",
+          userId: userId("editor.abc"),
+          action: "release",
+          comment: a.copies.find((c) => c.language === m.language)?.note ?? null,
+          createdAt: at(released),
+        });
+        await tx.insert(schema.workflowEvents).values(events);
+
+        for (const c of a.copies.filter((x) => x.language === m.language)) {
+          const deemed = c.dueInHours !== undefined;
+          const [copy] = await tx
+            .insert(schema.articleVersions)
+            .values({
+              articleId: article!.id,
+              tenantId: tenantId(c.tenant),
+              language: m.language,
+              headline: m.headline,
+              summary: m.summary,
+              body: m.body,
+              state: "with_publisher",
+              requiresExplicit: !deemed,
+              explicitReasons: c.explicitReasons ?? [],
+              autoApproveAt: deemed ? at(now + c.dueInHours! * 3600_000) : null,
+              createdAt: at(released),
+              updatedAt: at(released),
+            })
+            .returning();
+          await tx.insert(schema.workflowEvents).values({
+            versionId: copy!.id,
+            fromState: null,
+            toState: "with_publisher",
+            userId: userId("editor.abc"),
+            action: "release",
+            comment: c.note ?? null,
+            createdAt: at(released),
+          });
+        }
+      }
     });
   }
 

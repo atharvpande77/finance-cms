@@ -29,6 +29,13 @@ describe("roles", () => {
     expect(can(editorTb, "copy.decide", PB)).toBe(false);
     expect(can([m("publisher_admin", TB)], "copy.decide", TB)).toBe(false);
     expect(can([m("publisher_admin", TB)], "copy.view", TB)).toBe(true);
+    expect(can([m("abcfinance_desk_manager", ABC)], "copy.oversee")).toBe(true);
+    expect(can([m("abcfinance_editor", ABC)], "copy.oversee")).toBe(false);
+    expect(can([m("abcfinance_super_admin", ABC)], "copy.decide", TB)).toBe(false);
+    expect(can(editorTb, "copy.run_due", TB)).toBe(true);
+    expect(can(editorTb, "copy.run_due", PB)).toBe(false);
+    expect(can([m("publisher_admin", TB)], "copy.run_due", TB)).toBe(false);
+    expect(can([m("abcfinance_super_admin", ABC)], "copy.run_due", PB)).toBe(true);
 
     const adminAmc = [m("institution_account_admin", AMC)];
     expect(can(adminAmc, "leads.view", AMC)).toBe(true);
@@ -104,9 +111,11 @@ describe("panel menu", () => {
     expect(areas([m("publisher_editor", TB)])).toEqual(["dashboard", "publisher"]);
     expect(areas([m("publisher_admin", TB)])).toEqual(["dashboard", "publisher", "reports"]);
     expect(areas([m("abcfinance_writer", ABC)])).toEqual(["dashboard", "articles"]);
+    // Staff oversee every paper's queue, read-only (D28).
     expect(areas([m("abcfinance_desk_manager", ABC)])).toEqual([
       "dashboard",
       "articles",
+      "publisher",
       "reports",
       "widgets",
       "ads",
@@ -114,6 +123,7 @@ describe("panel menu", () => {
     expect(areas([m("abcfinance_super_admin", ABC)])).toEqual([
       "dashboard",
       "articles",
+      "publisher",
       "calculators",
       "reports",
       "finance",

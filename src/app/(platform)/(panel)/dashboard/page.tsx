@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/panel/PageHeader";
 import { requireUser } from "@/server/auth/current";
 import { recentActivity } from "@/server/auth/activity";
 import { waitingFor } from "@/server/articles/queries";
+import { waitingCopies } from "@/server/publishing/queue";
 import { LANGUAGE_NAMES } from "@/components/panel/articleLabels";
 import { activityLabel, isWarning } from "@/domain/activity";
 import { ROLE_LABELS, type Role } from "@/domain/roles";
@@ -26,7 +27,11 @@ const when = new Intl.DateTimeFormat("en-IN", {
 
 export default async function DashboardPage() {
   const s = await requireUser();
-  const [activity, waiting] = await Promise.all([recentActivity(s.user.id), waitingFor(s)]);
+  const [activity, waiting, copies] = await Promise.all([
+    recentActivity(s.user.id),
+    waitingFor(s),
+    waitingCopies(s),
+  ]);
 
   const orgs = new Map<string, { name: string; kind: string; roles: Role[] }>();
   for (const m of s.memberships) {
@@ -49,13 +54,33 @@ export default async function DashboardPage() {
             <CardDescription>Articles and decisions that need your action.</CardDescription>
           </CardHeader>
           <CardContent>
-            {waiting.length === 0 ? (
+            {waiting.length === 0 && copies.length === 0 ? (
               <div className="flex items-center gap-3 rounded-lg bg-muted/60 px-4 py-5 text-sm text-muted-foreground">
                 <Inbox className="size-4 shrink-0" strokeWidth={1.75} aria-hidden />
                 Nothing needs your attention right now.
               </div>
             ) : (
               <ul className="-mx-2 grid" data-waiting>
+                {copies.map((c) => (
+                  <li key={c.copyId} data-waiting-copy={c.copyId}>
+                    <Link
+                      href={`/publisher/${c.copyId}`}
+                      className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md px-2 py-2.5 transition-colors duration-150 hover:bg-accent"
+                    >
+                      <span className="min-w-0 flex-1 basis-56 font-medium text-pretty">
+                        {c.headline}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {c.heldAt
+                          ? "Held"
+                          : c.requiresExplicit
+                            ? "Needs your approval"
+                            : `Publishes ${when.format(c.autoApproveAt!)}`}{" "}
+                        · {LANGUAGE_NAMES[c.language] ?? c.language} · {c.tenantName}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
                 {waiting.map((w) => (
                   <li key={w.versionId}>
                     <Link

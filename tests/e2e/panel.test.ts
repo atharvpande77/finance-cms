@@ -23,9 +23,11 @@ describe("panel shell", () => {
       { name: "editor.tb", menu: ["/dashboard", "/publisher"], refused: ["/articles", "/reports"] },
       {
         name: "super.abc",
+        // Staff oversee the papers' queues, read-only (D28).
         menu: [
           "/dashboard",
           "/articles",
+          "/publisher",
           "/calculators",
           "/reports",
           "/finance",
@@ -33,7 +35,7 @@ describe("panel shell", () => {
           "/ads",
           "/users",
         ],
-        refused: ["/leads", "/publisher"],
+        refused: ["/leads"],
       },
     ];
     for (const c of cases) {
@@ -44,7 +46,9 @@ describe("panel shell", () => {
         const res = await client.get(path);
         expect(res.status, `${c.name} ${path}`).toBe(200);
         // Areas not built yet are guarded placeholders.
-        if (path !== "/articles") expect(res.text).toContain("data-area-stub");
+        if (!["/articles", "/publisher"].includes(path)) {
+          expect(res.text).toContain("data-area-stub");
+        }
       }
       for (const path of c.refused) {
         const res = await client.get(path);

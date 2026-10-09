@@ -41,6 +41,10 @@ const RULES = {
   "copy.decide": { scoped: ["publisher_editor"] },
   /** See that paper's queue (publisher_admin sees but cannot decide). */
   "copy.view": { scoped: ["publisher_editor", "publisher_admin"] },
+  /** See every paper's queue, read-only (D28). */
+  "copy.oversee": { global: STAFF_ADMINS },
+  /** Publish copies past their window now: a paper's editor for that paper, or staff for all. */
+  "copy.run_due": { scoped: ["publisher_editor"], global: STAFF_ADMINS },
   "reports.publisher": { scoped: ["publisher_admin"], global: STAFF_ADMINS },
   "reports.institution": { scoped: ["institution_account_admin"] },
   "reports.abcfinance": { global: STAFF_ADMINS },

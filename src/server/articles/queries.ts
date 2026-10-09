@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, ne, or } from "drizzle-orm";
 import { db, schema } from "@/server/db/client";
 import type { SessionInfo } from "@/server/auth/sessions";
 import {
@@ -32,6 +32,7 @@ export type ArticleListItem = {
   type: ArticleRef["type"];
   organisationName: string;
   sectionName: Record<string, string>;
+  reviewBy: string;
   versions: Array<{
     versionId: string;
     language: string;
@@ -55,6 +56,7 @@ export async function listForUser(session: Session): Promise<ArticleListItem[]> 
       organisationId: a.organisationId,
       organisationName: schema.organisations.name,
       sectionName: s.name,
+      reviewBy: a.reviewBy,
       versionId: v.id,
       language: v.language,
       headline: v.headline,
@@ -80,6 +82,7 @@ export async function listForUser(session: Session): Promise<ArticleListItem[]> 
         type: r.type,
         organisationName: r.organisationName,
         sectionName: r.sectionName,
+        reviewBy: r.reviewBy,
         versions: [],
         yourTurn: false,
         updatedAt: r.updatedAt,
@@ -158,6 +161,8 @@ export async function getForUser(session: Session, articleId: string, language: 
     .innerJoin(schema.tenants, eq(schema.tenants.id, schema.articleTargets.tenantId))
     .where(eq(schema.articleTargets.articleId, articleId));
 
+  // The masters' steps and the papers' decisions. A copy's own "release" event repeats the
+  // master's, so it is left out.
   const e = schema.workflowEvents;
   const history = await db()
     .select({
@@ -170,11 +175,13 @@ export async function getForUser(session: Session, articleId: string, language: 
       createdAt: e.createdAt,
       userName: schema.users.name,
       actorLabel: e.actorLabel,
+      tenantName: schema.tenants.name,
     })
     .from(e)
     .innerJoin(v, eq(v.id, e.versionId))
     .leftJoin(schema.users, eq(schema.users.id, e.userId))
-    .where(and(eq(v.articleId, articleId), isNull(v.tenantId)))
+    .leftJoin(schema.tenants, eq(schema.tenants.id, v.tenantId))
+    .where(and(eq(v.articleId, articleId), or(isNull(v.tenantId), ne(e.action, "release"))))
     .orderBy(desc(e.id));
 
   const ref = { type: article.type, organisationId: article.organisationId };

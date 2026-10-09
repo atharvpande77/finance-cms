@@ -194,3 +194,51 @@ Author profiles aren't tied to user accounts, which matches the seed.
 Opening another institution's article gives the same "not found" as an article that doesn't
 exist, so ids can't be probed. Areas outside a person's roles still answer 403 (D21), because
 the menu already tells them the area exists.
+
+## D26. Page caching is deferred to M6, behind one hook (2026-10-09, M3b, user decision)
+
+Replaces D11's timing. Reader pages keep rendering per request from indexed queries; caching is
+added in M6 only if measurements on the VPS call for it. Every change readers can see (publish,
+deemed publish, hold, take-down) already calls `contentChanged({ tenantIds, articleId })` in
+`src/server/content/events.ts`, a documented no-op for now, so adding caching later is one
+function.
+
+## D27. A taken-down article answers 404 (2026-10-09, M3b, user decision)
+
+04.3 says a take-down removes the article "from the reader site immediately". We answer exactly as
+for any missing page: the paper's themed not-found page with a real 404 and `noindex`. It also
+leaves the sitemap, and its canonical moves to the next paper still publishing it (D8). There is
+no "410 Gone" or tombstone page.
+
+## D28. abcfinance oversees the queues read-only (2026-10-09, M3b, user decision)
+
+04.1 gives the publisher queue to the papers. Who sees it and acts:
+- a paper's `publisher_editor` decides on that paper's copies;
+- its `publisher_admin` sees the paper's queue, read-only (as 04.3 says);
+- `abcfinance_super_admin` and `abcfinance_desk_manager` see every paper's queue, read-only
+  (`copy.oversee`), so the desk can follow up on what is stuck;
+- "publish anything past its window now" (`copy.run_due`) is open to a paper's editors for their
+  papers and to those two staff roles for every paper. It runs the same sweep as the scheduled
+  job, so it can only publish what is already due, and the audit row names who pressed it.
+
+## D29. Sending a released article to more papers (2026-10-09, M3b)
+
+04.3 allows a release to skip papers that already have the version, which implies releasing the
+same version again. An editor can send an article that is already "With publisher" to more
+papers from its page. The master stays "With publisher"; only the new papers get copies. Choosing
+only papers that already have it is refused ("releasing twice to the same paper is refused").
+
+## D30. The deemed sweep skips rows a person is deciding on (2026-10-09, M3b)
+
+04.3 says concurrent decisions win over the scheduled job. The sweep selects due copies with
+`FOR UPDATE SKIP LOCKED` in one transaction, so a copy whose row a person's decision has locked
+is left for the next run. Both the sweep and the decisions are conditional updates on the copy's
+`rev`, so whichever comes second changes nothing (the person is told someone else changed it).
+
+## D31. No corrections after release in phase 1 (2026-10-09, M3b, user decision; for the business)
+
+04.2 says text can be edited only in Draft and Editing, and paper copies are never edited. So once
+an article is released, a typo cannot be fixed in place: the paper's editor takes the copy down,
+and the article is written again as a new one. Corrections (a new version replacing a live copy)
+can be a later feature if the papers need it. **To confirm with the business.**
+

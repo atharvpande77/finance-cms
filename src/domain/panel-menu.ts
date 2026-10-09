@@ -27,7 +27,6 @@ const AREAS: readonly (MenuItem & { allowed: (ms: readonly Membership[]) => bool
     area: "articles",
     href: "/articles",
     label: "Articles",
-    arrives: "M3",
     allowed: (ms) =>
       ms.some((m) => m.organisationType === "abcfinance") ||
       can(ms, "article.write.institution") ||
@@ -38,8 +37,7 @@ const AREAS: readonly (MenuItem & { allowed: (ms: readonly Membership[]) => bool
     area: "publisher",
     href: "/publisher",
     label: "Publisher queue",
-    arrives: "M3",
-    allowed: (ms) => can(ms, "copy.view"),
+    allowed: (ms) => can(ms, "copy.view") || can(ms, "copy.oversee"),
   },
   {
     area: "leads",

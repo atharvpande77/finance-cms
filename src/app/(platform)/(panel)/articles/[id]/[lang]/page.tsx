@@ -8,28 +8,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArticleBody } from "@/components/reader/ArticleBody";
 import { ArticleEditor } from "@/components/panel/ArticleEditor";
 import { AddLanguageForm, ReturnForm, StepForm } from "@/components/panel/WorkflowActions";
+import { ReleaseForm, type ReleasePaper } from "@/components/panel/PublishingForms";
 import {
+  COPY_BADGE,
   DONE_MESSAGES,
   LANGUAGE_NAMES,
   STATE_BADGE,
   localized,
+  panelTime,
 } from "@/components/panel/articleLabels";
 import { requireArea } from "@/server/auth/current";
 import { getForUser } from "@/server/articles/queries";
+import { releasePreview, type ReleasePreview } from "@/server/publishing/release";
+import { copiesFor } from "@/server/publishing/queue";
 import { isBeforeRelease, STATE_LABELS, type VersionState } from "@/domain/workflow";
+import { COPY_STATUS_LABELS, EXPLICIT_REASON_LABELS, copyStatus } from "@/domain/publishing";
 import { saveArticleAction } from "@/app/(platform)/_actions/articles";
 
 export const metadata: Metadata = { title: "Article" };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-
-const when = new Intl.DateTimeFormat("en-IN", {
-  day: "numeric",
-  month: "short",
-  hour: "numeric",
-  minute: "2-digit",
-  timeZone: "Asia/Kolkata",
-});
 
 const ACTION_TEXT: Record<string, string> = {
   create: "created the draft",
@@ -37,6 +35,10 @@ const ACTION_TEXT: Record<string, string> = {
   submit: "submitted it",
   approve: "approved it",
   return: "returned it",
+  release: "sent it to the newspapers",
+  hold: "held it",
+  take_down: "took it down",
+  deemed_approve: "published it",
 };
 
 /** What happens next, in words, when it isn't this person's step. */
@@ -45,8 +47,30 @@ const WAITING: Partial<Record<VersionState, string>> = {
   in_approval: "Waiting for the institution's approver.",
   compliance_review: "Waiting for the institution's compliance officer.",
   editing: "With abcfinance's editors.",
-  with_publisher: "Sent to the newspapers.",
+  with_publisher: "With the newspapers. Each paper's editor decides on their own copy.",
 };
+
+/** Each paper on the release form, with what will happen there (04.3). */
+function releasePapers(preview: ReleasePreview): ReleasePaper[] {
+  return preview.papers.map((p) => ({
+    id: p.id,
+    slug: p.slug,
+    name: p.name,
+    ticked: p.targeted && p.plan.action === "create",
+    unavailable: p.plan.action === "create" ? null : `${p.plan.reason}.`,
+    rule: p.reasons.length
+      ? {
+          kind: "explicit",
+          text: "Waits for the editor's explicit approval:",
+          reasons: p.reasons.map((r) => EXPLICIT_REASON_LABELS[r]),
+        }
+      : {
+          kind: "deemed",
+          text: `Publishes automatically ${p.autoApproveHours} hours after release unless the editor holds it.`,
+          reasons: [],
+        },
+  }));
+}
 
 export default async function ArticlePage({
   params,
@@ -63,6 +87,15 @@ export default async function ArticlePage({
   // Not visible and not existing look the same (D25).
   if (!data) notFound();
   const { article, version, masters, targets, history, actions } = data;
+  const [preview, allCopies] = await Promise.all([
+    releasePreview(s, version.id),
+    copiesFor(article.id),
+  ]);
+  const copies = allCopies.filter((c) => c.language === lang);
+  const morePapers =
+    preview && version.state === "with_publisher"
+      ? preview.papers.some((p) => p.plan.action === "create")
+      : false;
   const ids = { articleId: article.id, versionId: version.id, rev: version.rev, language: lang };
   const canSave = actions.includes("save");
   const yourTurn = actions.some((a) => a !== "save") || (canSave && version.state === "draft");
@@ -145,19 +178,37 @@ export default async function ArticlePage({
                 }
               />
             ) : null}
+            {actions.includes("release") && preview ? (
+              <ReleaseForm
+                ids={ids}
+                papers={releasePapers(preview)}
+                label="Send to selected papers"
+              />
+            ) : null}
             {actions.includes("return") ? (
               <ReturnForm
                 ids={ids}
                 label={version.state === "editing" ? "Return to the writer" : "Return to writer"}
               />
             ) : null}
-            {actions.includes("release") ? (
-              <p className="text-sm text-muted-foreground">Sending to newspapers arrives in M3b.</p>
-            ) : null}
             {actions.filter((a) => a !== "save").length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 {WAITING[version.state] ?? "Nothing to do."}
               </p>
+            ) : null}
+            {morePapers && preview ? (
+              <details className="group rounded-lg border p-3" data-send-more>
+                <summary className="cursor-pointer text-sm font-medium">
+                  Send to more papers
+                </summary>
+                <div className="mt-3">
+                  <ReleaseForm
+                    ids={ids}
+                    papers={releasePapers(preview)}
+                    label="Send to more papers"
+                  />
+                </div>
+              </details>
             ) : null}
           </CardContent>
         </Card>
@@ -216,11 +267,43 @@ export default async function ArticlePage({
               <CardTitle className="text-base">Newspapers</CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="grid gap-1 text-sm">
-                {targets.map((t) => (
-                  <li key={t.id}>{localized(t.name)}</li>
-                ))}
-              </ul>
+              {copies.length ? (
+                <ul className="grid gap-3 text-sm" data-copies>
+                  {copies.map((c) => {
+                    const status = copyStatus(c);
+                    return (
+                      <li
+                        key={c.copyId}
+                        className="grid gap-0.5"
+                        data-copy={c.tenantSlug}
+                        data-copy-status={status}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium">{c.tenantName}</span>
+                          <Badge variant={COPY_BADGE[status]}>{COPY_STATUS_LABELS[status]}</Badge>
+                        </div>
+                        <p className="text-xs text-pretty text-muted-foreground">
+                          {status === "waiting"
+                            ? c.requiresExplicit
+                              ? `Needs the editor's approval: ${c.explicitReasons.map((r) => EXPLICIT_REASON_LABELS[r].toLowerCase()).join("; ")}`
+                              : `Publishes automatically on ${panelTime.format(c.autoApproveAt!)}`
+                            : status === "published"
+                              ? `${c.approvalType === "deemed" ? "Published automatically" : "Approved by the editor"} on ${panelTime.format(c.publishedAt!)}`
+                              : status === "held"
+                                ? "Held by the editor"
+                                : "Taken down by the editor"}
+                        </p>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <ul className="grid gap-1 text-sm">
+                  {targets.map((t) => (
+                    <li key={t.id}>{localized(t.name)}</li>
+                  ))}
+                </ul>
+              )}
             </CardContent>
           </Card>
 
@@ -247,6 +330,7 @@ export default async function ArticlePage({
                     <p>
                       <span className="font-medium">{e.userName ?? e.actorLabel ?? "System"}</span>{" "}
                       {ACTION_TEXT[e.action] ?? e.action}
+                      {e.tenantName ? ` on ${localized(e.tenantName)}` : ""}
                       {masters.length > 1 ? ` (${LANGUAGE_NAMES[e.language] ?? e.language})` : ""}
                     </p>
                     {e.comment ? (
@@ -256,7 +340,7 @@ export default async function ArticlePage({
                       dateTime={e.createdAt.toISOString()}
                       className="text-xs text-muted-foreground tabular-nums"
                     >
-                      {when.format(e.createdAt)}
+                      {panelTime.format(e.createdAt)}
                     </time>
                   </li>
                 ))}

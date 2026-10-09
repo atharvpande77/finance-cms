@@ -3,6 +3,7 @@ import { db, schema } from "@/server/db/client";
 import { sendQueued } from "@/server/mail/outbox";
 import { pruneRateLimits } from "@/server/ratelimit";
 import { pruneExpiredSessions } from "@/server/auth/sessions";
+import { publishDue } from "@/server/publishing/deemed";
 
 /** Per-view tracking rows are kept 30 days (doc 06.4). */
 const PAGE_VIEW_RETENTION_DAYS = 30;
@@ -28,9 +29,9 @@ export async function runScheduledJob(now = new Date()): Promise<JobResult> {
   return { published, purgedLeads, prunedViews, mail };
 }
 
-/** Deemed approval is implemented with the article workflow (milestone M3). */
-async function publishDeemed(_now: Date): Promise<number> {
-  return 0;
+/** Publishes every copy past its veto window (04.3). */
+async function publishDeemed(now: Date): Promise<number> {
+  return (await publishDue(now)).length;
 }
 
 /** Blanks personal fields of leads past retention; the consent record and status stay (04.6). */

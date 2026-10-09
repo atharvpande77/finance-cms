@@ -1,7 +1,6 @@
 /**
- * Articles part-way through the workflow (TESTING.md §2B), before release. The two that are
- * already with the newspapers arrive with release in M3b. All content is fictional and is not
- * financial advice.
+ * Articles part-way through the workflow (TESTING.md §2B): five before release, and two already
+ * with the newspapers. All content is fictional and is not financial advice.
  */
 import type { OrgSlug } from "./data";
 
@@ -171,6 +170,159 @@ Compare the rider's cost with a separate policy before you add it.`,
       { action: "create", from: null, to: "draft", by: null, hoursAgo: 70 },
       { action: "submit", from: "draft", to: "in_approval", by: null, hoursAgo: 60 },
       { action: "approve", from: "in_approval", to: "compliance_review", by: null, hoursAgo: 30 },
+    ],
+  },
+];
+
+type Master = { language: "en" | "mr"; headline: string; summary: string; body: string };
+
+/** A copy waiting for a paper: deemed (due in some hours) or needing an explicit approval. */
+type WaitingCopy = {
+  tenant: string;
+  language: "en" | "mr";
+  /** Deemed approval: the window ends this many hours after seeding. */
+  dueInHours?: number;
+  explicitReasons?: Array<"first_articles" | "flagged" | "held_section">;
+  /** For explicit copies: when it was released. */
+  releasedHoursAgo?: number;
+  note?: string;
+};
+
+export type ReleasedArticle = {
+  slug: string;
+  type: "institution" | "abcfinance";
+  section: string;
+  org: OrgSlug;
+  author: string;
+  /** The approval steps every master went through before release, by demo user. */
+  path: Array<{
+    action: "submit" | "approve";
+    by: string;
+    to: "in_approval" | "compliance_review" | "editing";
+  }>;
+  writer: string;
+  masters: Master[];
+  copies: WaitingCopy[];
+};
+
+/** Hours in each paper's veto window in the seed (all three use the default). */
+export const SEED_WINDOW_HOURS = 24;
+
+export const releasedArticles: ReleasedArticle[] = [
+  {
+    slug: "home-loan-balance-transfer",
+    type: "abcfinance",
+    section: "home-loan",
+    org: "abcfinance",
+    author: "abcfinance-desk",
+    writer: "writer.abc",
+    path: [{ action: "submit", by: "writer.abc", to: "editing" }],
+    masters: [
+      {
+        language: "mr",
+        headline: "गृहकर्ज बॅलन्स ट्रान्सफर: कर्ज बदलणे कधी फायद्याचे?",
+        summary:
+          "कमी व्याजदराच्या बँकेकडे कर्ज नेल्यास पैसे वाचू शकतात, पण शुल्क आणि वेळ महत्त्वाची आहे.",
+        body: `बॅलन्स ट्रान्सफर म्हणजे तुमचे उरलेले गृहकर्ज दुसऱ्या बँकेकडे नेणे, सहसा कमी व्याजदरासाठी. किती बचत होईल हे उरलेली रक्कम आणि उरलेल्या वर्षांवर अवलंबून असते.
+
+## कर्ज बदलण्यापूर्वी
+
+- नवा व्याजदर आणि सध्याचा व्याजदर यांची तुलना करा.
+- प्रक्रिया शुल्क, कायदेशीर खर्च आणि मुद्रांक शुल्क यांची बेरीज करा.
+- सध्याची बँक विचारल्यास व्याजदर कमी करते का, ते तपासा.
+
+{{calc:emi}}
+
+कर्जाच्या सुरुवातीच्या वर्षांत बदल केल्यास जास्त बचत होते, कारण बहुतेक व्याज पहिल्या काही वर्षांत भरले जाते.`,
+      },
+      {
+        language: "en",
+        headline: "Home loan balance transfer: when does switching pay?",
+        summary:
+          "Moving your loan to a lender with a lower rate can save money, but fees and timing matter.",
+        body: `A balance transfer moves your outstanding home loan to another lender, usually for a lower interest rate. The saving depends on how much is left to repay and how many years remain.
+
+## Before you switch
+
+- Compare the new rate with your current one.
+- Add up processing fees, legal charges and stamp duty.
+- Ask whether your current lender will lower the rate if you ask.
+
+{{calc:emi}}
+
+Switching early in the loan usually saves more, because most of the interest is paid in the first years.`,
+      },
+    ],
+    copies: [
+      { tenant: "tarunbharat", language: "mr", dueInHours: 20 },
+      {
+        tenant: "paperb",
+        language: "en",
+        dueInHours: 3,
+        note: "Timed for the RBI policy week.",
+      },
+    ],
+  },
+  {
+    slug: "index-funds-in-plain-words",
+    type: "institution",
+    section: "mutual-funds",
+    org: "sample-amc",
+    author: "anita-kulkarni",
+    writer: "writer.amc",
+    path: [
+      { action: "submit", by: "writer.amc", to: "in_approval" },
+      { action: "approve", by: "approver.amc", to: "compliance_review" },
+      { action: "approve", by: "compliance.amc", to: "editing" },
+    ],
+    masters: [
+      {
+        language: "mr",
+        headline: "इंडेक्स फंड सोप्या शब्दांत",
+        summary: "इंडेक्स फंड काय करतो, त्याचा खर्च किती आणि तो कोणासाठी योग्य ठरू शकतो.",
+        body: `इंडेक्स फंड निफ्टी ५० सारख्या बाजार निर्देशांकातील शेअर्स त्याच प्रमाणात खरेदी करतो. तो निर्देशांकाला मागे टाकण्याचा प्रयत्न करत नाही; तो निर्देशांकाइतकाच परतावा मिळवण्याचा प्रयत्न करतो.
+
+## लोक हा पर्याय का निवडतात
+
+- **कमी खर्च:** शेअर्स निवडणारी टीम नसल्याने खर्चाचे प्रमाण सहसा कमी असते.
+- **समजायला सोपा:** फंडाचे मूल्य निर्देशांकासोबत बदलते.
+- **विविधता:** एकाच फंडात अनेक कंपन्या असतात.
+
+## लक्षात ठेवा
+
+बाजार घसरला की फंडही घसरतो. एकाच निर्देशांकाचा मागोवा घेणाऱ्या फंडांमध्ये ट्रॅकिंग एरर आणि खर्चाचे प्रमाण यांची तुलना करा.`,
+      },
+      {
+        language: "en",
+        headline: "Index funds in plain words",
+        summary: "What an index fund does, what it costs, and who it may suit.",
+        body: `An index fund buys the shares of a market index, such as the Nifty 50, in the same proportions. It does not try to beat the index; it tries to match it.
+
+## Why people choose them
+
+- **Low cost:** no team is picking stocks, so the expense ratio is usually lower.
+- **Easy to follow:** the fund's value moves with the index.
+- **Broad spread:** one fund holds many companies.
+
+## What to keep in mind
+
+The fund falls when the market falls. Compare tracking error and expense ratio between funds that follow the same index.`,
+      },
+    ],
+    // Sample AMC has fewer than three articles live on each paper, so both papers must approve.
+    copies: [
+      {
+        tenant: "tarunbharat",
+        language: "mr",
+        explicitReasons: ["first_articles"],
+        releasedHoursAgo: 5,
+      },
+      {
+        tenant: "paperb",
+        language: "en",
+        explicitReasons: ["first_articles"],
+        releasedHoursAgo: 5,
+      },
     ],
   },
 ];

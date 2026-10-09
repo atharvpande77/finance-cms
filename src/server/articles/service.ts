@@ -25,7 +25,7 @@ import {
  * `rev`: the update only applies if nobody changed the version since the person loaded it (D22).
  */
 
-type Actor = Pick<SessionInfo, "memberships"> & { user: { id: string } };
+export type Actor = Pick<SessionInfo, "memberships"> & { user: { id: string } };
 export type ServiceResult<T = object> =
   ({ ok: true } & T) | { ok: false; error: string; code?: string };
 
@@ -39,7 +39,7 @@ const NOT_ALLOWED = "You can't do that to this article now.";
 const SLUG_RULE = "Use 3–80 lower-case letters, numbers and single hyphens for the web address.";
 const SLUG_TAKEN = "Another article already uses this web address. Choose another.";
 
-function isUniqueViolation(err: unknown, constraint?: string): boolean {
+export function isUniqueViolation(err: unknown, constraint?: string): boolean {
   const e = err as { code?: string; constraint_name?: string; cause?: unknown };
   const pg = e?.code === "23505" ? e : (e?.cause as typeof e | undefined);
   return pg?.code === "23505" && (!constraint || pg.constraint_name === constraint);

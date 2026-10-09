@@ -8,6 +8,7 @@ import { LANGUAGE_NAMES, STATE_BADGE, localized } from "@/components/panel/artic
 import { requireArea } from "@/server/auth/current";
 import { listForUser } from "@/server/articles/queries";
 import { canCreate, STATE_LABELS } from "@/domain/workflow";
+import { indianDate } from "@/domain/time";
 
 export const metadata: Metadata = { title: "Articles" };
 
@@ -20,6 +21,7 @@ const when = new Intl.DateTimeFormat("en-IN", {
 export default async function ArticlesPage() {
   const s = await requireArea("articles");
   const items = await listForUser(s);
+  const today = indianDate(new Date());
   return (
     <>
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
@@ -74,6 +76,12 @@ export default async function ArticlesPage() {
               <p className="text-xs text-muted-foreground">
                 {item.organisationName} · {localized(item.sectionName)} · updated{" "}
                 <span className="tabular-nums">{when.format(item.updatedAt)}</span>
+                {/* Review dates (04.3) are only flagged in phase 1, never acted on. */}
+                {item.reviewBy < today ? (
+                  <Badge variant="warning" className="ml-2 align-middle" data-overdue>
+                    Overdue review
+                  </Badge>
+                ) : null}
               </p>
             </li>
           ))}

@@ -71,10 +71,21 @@ history. Their text is invented.
 
 Steps by people without demo accounts are recorded with the actor label "seed (no demo account)".
 
+## Articles with the newspapers (M3b): `releasedArticles` in `workflow.ts`
+
+The two TESTING.md §2B articles already sent to the papers. Each has a Marathi and an English
+master ("With publisher") and one waiting copy per paper. The text is invented.
+
+| Article                      | Type and section      | Copies                                                                               |
+| ---------------------------- | --------------------- | ------------------------------------------------------------------------------------ |
+| `home-loan-balance-transfer` | abcfinance, home loan | Tarun Bharat mr, publishes itself about 20 h after seeding; Paper B en, about 3 h    |
+| `index-funds-in-plain-words` | AMC, mutual funds     | Tarun Bharat mr and Paper B en, both needing an explicit approval (first 3 from AMC) |
+
+The deadlines are counted from seed time, so `corepack pnpm db:reset` re-arms them. Paper B's
+copy carries a release note for its editor.
+
 ## Still to add
 
-- **M3b:** the two articles already with the newspapers ("Home loan balance transfer", "Index
-  funds in plain words").
 - **M5:** 45 days of traffic.
 - **M7:** past statements.
 - **M8:** widget cards.
