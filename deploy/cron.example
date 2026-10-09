@@ -1,0 +1,5 @@
+# /etc/cron.d/abcfinance (root). The scheduled job every 5 minutes (doc 07.2) and the nightly backup.
+# CRON_SECRET must match the app's. Add a dead-man's-switch ping (e.g. a healthchecks URL) so a
+# missed run alerts someone.
+*/5 * * * *  root  curl -fsS -X POST -H "Authorization: Bearer $(cat /etc/abcfinance/cron-secret)" http://127.0.0.1:3000/api/cron/deemed > /dev/null
+15 2 * * *   root  /opt/abcfinance/deploy/backup/pg-backup.sh >> /var/log/abcfinance-backup.log 2>&1
