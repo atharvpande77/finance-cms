@@ -7,6 +7,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db, schema } from "@/server/db/client";
 import { hashPassword } from "@/server/auth/password";
 import * as data from "./data";
+import { articles as seedArticles } from "./articles";
 
 async function main() {
   const d = db();
@@ -143,11 +144,85 @@ async function main() {
     }
   }
 
+  // Published demo articles: a released master per language plus the newspapers' copies.
+  const sectionRows = await d
+    .select({ id: schema.sections.id, slug: schema.sections.slug })
+    .from(schema.sections);
+  const authorRows = await d
+    .select({ id: schema.authors.id, slug: schema.authors.slug })
+    .from(schema.authors);
+  for (const a of seedArticles) {
+    const [existing] = await d
+      .select({ id: schema.articles.id })
+      .from(schema.articles)
+      .where(eq(schema.articles.slug, a.slug));
+    if (existing) continue;
+    const created = new Date(a.createdAt);
+    const reviewBy = new Date(created);
+    reviewBy.setUTCMonth(reviewBy.getUTCMonth() + 6);
+    await d.transaction(async (tx) => {
+      const [article] = await tx
+        .insert(schema.articles)
+        .values({
+          slug: a.slug,
+          type: a.type,
+          masterLanguage: a.masterLanguage,
+          organisationId: orgId(a.org),
+          authorId: authorRows.find((r) => r.slug === a.author)!.id,
+          sectionId: sectionRows.find((r) => r.slug === a.section)!.id,
+          reviewBy: reviewBy.toISOString().slice(0, 10),
+          createdAt: created,
+        })
+        .returning();
+      const tenantSlugs = [...new Set(a.copies.map((c) => c.tenant))];
+      await tx
+        .insert(schema.articleTargets)
+        .values(tenantSlugs.map((t) => ({ articleId: article!.id, tenantId: tenantId(t) })));
+      for (const [lang, text] of Object.entries(a.versions)) {
+        await tx.insert(schema.articleVersions).values({
+          articleId: article!.id,
+          tenantId: null,
+          language: lang,
+          ...text!,
+          state: "with_publisher",
+          createdAt: created,
+        });
+      }
+      for (const copy of a.copies) {
+        const text = a.versions[copy.lang]!;
+        const publishedAt = new Date(copy.publishedAt);
+        const [version] = await tx
+          .insert(schema.articleVersions)
+          .values({
+            articleId: article!.id,
+            tenantId: tenantId(copy.tenant),
+            language: copy.lang,
+            ...text,
+            state: "published",
+            approvalType: copy.approval,
+            publishedAt,
+            lastReviewedAt: publishedAt,
+            createdAt: created,
+          })
+          .returning();
+        await tx.insert(schema.workflowEvents).values({
+          versionId: version!.id,
+          fromState: "with_publisher",
+          toState: "published",
+          actorLabel: "seed",
+          action: copy.approval === "explicit" ? "approve" : "deemed_approval",
+          createdAt: publishedAt,
+        });
+      }
+    });
+  }
+
   const count = async (table: Parameters<typeof d.$count>[0]) => d.$count(table);
   console.log(
     `Seeded: ${await count(schema.organisations)} organisations, ${await count(schema.tenants)} newspapers, ` +
       `${await count(schema.sections)} sections, ${await count(schema.users)} users, ` +
-      `${await count(schema.plans)} plans, ${await count(schema.contracts)} contracts.`,
+      `${await count(schema.plans)} plans, ${await count(schema.contracts)} contracts, ` +
+      `${await count(schema.articles)} articles, ${await count(schema.articleVersions)} versions.`,
   );
 }
 

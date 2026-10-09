@@ -16,8 +16,9 @@ and `docs/abcfinance-phase1-spec.pdf` (all gitignored). The plan is in
 | Milestone | State |
 | --- | --- |
 | M0 Foundations: schema, crypto, jobs, seed, test harness, CI, deploy files | done |
-| M1 Tenancy and reader site | next |
-| M2–M10 | see the plan |
+| M1 Tenancy and reader site: host routing, themes, Marathi and English, SEO, sitemap and robots | done |
+| M2 Identity and panel shell | next |
+| M3–M10 | see the plan |
 
 Acceptance-check coverage: run `corepack pnpm acceptance:index` (needs the local handover docs) to
 write `tests/acceptance/INDEX.md`.
@@ -34,6 +35,9 @@ corepack pnpm db:migrate
 corepack pnpm db:seed         # demo world: 3 newspapers, 3 institutions, 15 users
 corepack pnpm dev             # http://localhost:3000
 ```
+
+The newspaper sites are at http://tarunbharat.localhost:3000, http://paperb.localhost:3000 and
+http://paperc.localhost:3000. Chrome and Edge resolve `*.localhost` without setup.
 
 Demo accounts are `<name>@demo.abcfinance.test` with password `Demo-Pass-2026`. The names are in
 `db/seed/data.ts`. To start over, run `corepack pnpm db:reset`.

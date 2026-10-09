@@ -48,3 +48,48 @@ Triggers enforce three rules from 03.7:
 - audit events are never edited.
 
 The last-admin rules stay in the service layer (M5) because they depend on who is acting.
+
+## D8. Canonical goes to the earliest *currently published* copy (2026-10-09, M1)
+
+Doc 04.4 says a copy that runs on several papers points its canonical at the first paper that
+published it. It doesn't say what happens when that paper takes the article down. We point at the
+earliest copy that is still published, so a takedown moves the canonical to the next-earliest paper
+and no live page ever canonicalises to a 404.
+
+Lives in `canonicalCopy()` (`src/server/content/queries.ts`).
+
+## D9. hreflang includes `x-default` (2026-10-09, M1)
+
+Pages list one alternate per language the page exists in on that paper (04.4). When the page
+exists in the paper's default language, we add `x-default` pointing at that version, as search
+engines recommend. An English-only article on a Marathi-first paper therefore has no `x-default`.
+
+## D10. Reader labels in Marathi are drafts (2026-10-09, M1)
+
+The handover gives no Marathi wording for "Partner content", the approval lines or the other reader
+strings (`src/domain/i18n.ts`). Ours are first drafts. A native editor and compliance must review
+them before launch, along with the disclaimers and consent text (09.4).
+
+## D11. Page caching arrives with publishing (2026-10-09, M1)
+
+In M1, reader pages render per request from indexed queries, with only the 30-second tenant cache
+(02 §2.4). Tag-based caching, purged on publish, takedown and edit, comes in M3, where those events
+exist and the purge can be tested end to end.
+
+## D12. Next.js runtime notes (2026-10-09, M1)
+
+- **Never start the server with `HOSTNAME=127.0.0.1`.** Next treats a proxy rewrite as internal only
+  when its origin matches the server's own, and it normalises 127.0.0.1 to `localhost` in request
+  URLs. The rewrite then becomes an external proxy request that loops. The Docker image and the e2e
+  harness use `0.0.0.0`.
+- **`notFound()` pages are drawn by the browser.** Next 16 answers `notFound()` with a real 404
+  status and `noindex`, then renders the page's themed "not found" UI on the client. Crawlers get
+  the 404; readers see the paper's page.
+- **Per-host `sitemap.xml` and `robots.txt` are route handlers at `sitemap-xml` and `robots-txt`.**
+  Folders named `sitemap.xml` would be taken as Next's own static metadata file, which can't see the
+  host.
+
+## D13. Sections and articles share one catch-all route (2026-10-09, M1)
+
+`/<section>` and `/<section>/<slug>` are served by `(site)/[...path]`. Any deeper or unknown path
+then ends in the paper's themed 404 rather than Next's default page.

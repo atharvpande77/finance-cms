@@ -50,12 +50,6 @@ export const organisations = [
 
 export type OrgSlug = (typeof organisations)[number]["slug"];
 
-const fonts = {
-  devanagari: "'Mukta', 'Noto Sans Devanagari', system-ui, sans-serif",
-  serifDevanagari: "'Noto Serif Devanagari', 'Mukta', Georgia, serif",
-  latin: "'Source Sans 3', system-ui, sans-serif",
-};
-
 export const tenants: Array<{
   slug: string;
   publisher: OrgSlug;
@@ -76,14 +70,20 @@ export const tenants: Array<{
     menuLabel: { mr: "अर्थविश्व", en: "Money" },
     mainSiteUrl: "https://www.tarunbharat.net",
     hosts: ["tarunbharat.localhost"],
+    // Follows tarunbharat.net: cream page, black utility strip, red wordmark with navy
+    // accents, Karma for the masthead and menu, Noto Sans for text.
     theme: {
-      primary: "#b3121f",
-      accent: "#f2b705",
-      bg: "#ffffff",
-      ink: "#1a1a1a",
+      primary: "#c8102e",
+      accent: "#303090",
+      bg: "#fffbf4",
+      surface: "#ffffff",
+      ink: "#212529",
       muted: "#5f6368",
-      headingFont: fonts.serifDevanagari,
-      bodyFont: fonts.devanagari,
+      rule: "#000000",
+      bar: "#000000",
+      displayFont: "karma",
+      headingFont: "noto-sans",
+      bodyFont: "noto-sans",
     },
     languages: ["mr", "en"],
     defaultLanguage: "mr",
@@ -99,12 +99,16 @@ export const tenants: Array<{
     hosts: ["paperb.localhost"],
     theme: {
       primary: "#1546a0",
-      accent: "#2bb3c0",
-      bg: "#ffffff",
+      accent: "#0e7c86",
+      bg: "#f7f9fc",
+      surface: "#ffffff",
       ink: "#111827",
       muted: "#4b5563",
-      headingFont: fonts.latin,
-      bodyFont: fonts.latin,
+      rule: "#1546a0",
+      bar: "#0b2552",
+      displayFont: "open-sans",
+      headingFont: "open-sans",
+      bodyFont: "open-sans",
     },
     languages: ["en", "mr"],
     defaultLanguage: "en",
@@ -120,12 +124,16 @@ export const tenants: Array<{
     hosts: ["paperc.localhost"],
     theme: {
       primary: "#17703a",
-      accent: "#9bc53d",
-      bg: "#ffffff",
+      accent: "#7a5c00",
+      bg: "#f8faf5",
+      surface: "#ffffff",
       ink: "#14281d",
       muted: "#53625a",
-      headingFont: fonts.devanagari,
-      bodyFont: fonts.devanagari,
+      rule: "#17703a",
+      bar: "#0f3d22",
+      displayFont: "mukta",
+      headingFont: "mukta",
+      bodyFont: "mukta",
     },
     languages: ["mr"],
     defaultLanguage: "mr",

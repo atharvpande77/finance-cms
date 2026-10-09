@@ -17,6 +17,8 @@ RUN pnpm build
 
 FROM node:24-alpine AS runner
 WORKDIR /app
+# HOSTNAME must not be 127.0.0.1 (see docs/decisions.md D12); compose publishes the port on
+# 127.0.0.1 only, so 0.0.0.0 inside the container is not exposed.
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
 RUN addgroup -S app && adduser -S app -G app
 COPY --from=build --chown=app:app /app/.next/standalone ./

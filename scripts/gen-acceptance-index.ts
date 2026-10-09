@@ -45,9 +45,27 @@ const UNIT_GROUPS: Group[] = [
   { match: "Revenue sharing", code: "U-FIN", milestone: "M7" },
   { match: "Bot filter, India-time", code: "U-AN", milestone: "M5", sub: { dates: "M0" } },
   { match: "Widget settings", code: "U-WID", milestone: "M8" },
-  { match: "Ad rules", code: "U-ADS", milestone: "M9" },
+  { match: "Ad rules", code: "U-ADS", milestone: "M9", sub: { "outbound links": "M1" } },
   { match: "Emails, role rules", code: "U-USR", milestone: "M5" },
 ];
+
+/**
+ * Checks done earlier than their group's milestone, because the feature they test arrives
+ * sooner (e.g. reader-side checks satisfiable with seeded live articles in M1).
+ */
+const ID_OVERRIDES: Record<string, string> = {
+  "E2E-UI-20": "M1",
+  "E2E-UI-21": "M1",
+  "E2E-UI-22": "M1",
+  "E2E-UI-23": "M1",
+  "E2E-UI-25": "M1",
+  "E2E-ADS-34": "M1",
+  "E2E-ADS-35": "M1",
+  "E2E-ADS-36": "M1",
+  "E2E-ADS-37": "M1",
+  "E2E-AN-02": "M1",
+  "U-ADS-10": "M1",
+};
 
 type Check = {
   id: string;
@@ -82,12 +100,13 @@ function parse(): Check[] {
     const bullet = line.match(/^- (.+)$/);
     if (bullet && group) {
       n++;
+      const id = `${group.code}-${String(n).padStart(2, "0")}`;
       checks.push({
-        id: `${group.code}-${String(n).padStart(2, "0")}`,
+        id,
         group: groupTitle,
         sub,
         text: bullet[1]!,
-        milestone: group.sub?.[sub] ?? group.milestone,
+        milestone: ID_OVERRIDES[id] ?? group.sub?.[sub] ?? group.milestone,
         line: i + 1,
       });
     }
@@ -142,11 +161,16 @@ if (checkIdx >= 0) {
     `All ${checks.filter((c) => milestoneNumber(c.milestone) <= upTo).length} checks due by M${upTo} have tests.`,
   );
 } else {
-  if (!haveSource) throw new Error(`Regenerating needs ${relative(ROOT, SOURCE)} (kept locally, not in git)`);
+  if (!haveSource)
+    throw new Error(`Regenerating needs ${relative(ROOT, SOURCE)} (kept locally, not in git)`);
   const full = checks as Check[];
   writeFileSync(
     CHECKS_JSON,
-    JSON.stringify(full.map(({ id, milestone }) => ({ id, milestone })), null, 0).replace(/},{/g, "},\n{") + "\n",
+    JSON.stringify(
+      full.map(({ id, milestone }) => ({ id, milestone })),
+      null,
+      0,
+    ).replace(/},{/g, "},\n{") + "\n",
   );
   const total = full.length;
   const done = full.filter((c) => covered.has(c.id)).length;

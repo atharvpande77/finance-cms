@@ -35,10 +35,28 @@ times: rows that already exist (matched by slug, email or name) are left alone.
 **Marathi copy is a first draft.** Disclaimers, glossary, consent wording and labels need review by a
 native editor and by compliance before launch (09.4).
 
+## Published articles (M1): `articles.ts`
+
+Seven articles with their published paper copies.
+
+| Article                            | Type and section                                    | Copies                                                                                                  |
+| ---------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `sip-basics` (TESTING.md)          | AMC, mutual funds                                   | Tarun Bharat en (editor-approved); Paper B en three days later, so its canonical points to Tarun Bharat |
+| `home-loan-checklist` (TESTING.md) | abcfinance, home loan                               | Tarun Bharat mr and en; Paper C mr                                                                      |
+| `emergency-fund-first`             | independent expert Suresh Patil, mutual funds       | Tarun Bharat en and mr; Paper B en                                                                      |
+| `elss-tax-saving`                  | AMC, mutual funds                                   | Tarun Bharat en                                                                                         |
+| `health-cover-for-parents`         | General Insurer, health insurance                   | Tarun Bharat en and mr                                                                                  |
+| `how-much-term-cover`              | abcfinance, life insurance (the exclusive category) | Tarun Bharat en and mr                                                                                  |
+| `gold-loan-before-you-pledge`      | abcfinance, gold loans                              | Tarun Bharat mr; Paper C mr                                                                             |
+
+The content is fictional and is not financial advice.
+
+**Changed seed data needs a reset.** The seed only adds missing rows, so after pulling changes to
+themes or articles, run `corepack pnpm db:reset`.
+
 ## Still to add
 
-- **M1:** articles.
-- **M3:** articles in workflow states. TESTING.md names 9 of the 14; the remaining 5 will be invented.
+- **M3:** articles in workflow states. TESTING.md names 7 more (14 in total with the 7 above).
 - **M5:** 45 days of traffic.
 - **M7:** past statements.
 - **M8:** widget cards.

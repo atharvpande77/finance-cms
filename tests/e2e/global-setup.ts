@@ -31,7 +31,9 @@ export default async function setup() {
     if (existsSync("public")) cpSync("public", ".next/standalone/public", { recursive: true });
   }
   server = spawn("node", [".next/standalone/server.js"], {
-    env: { ...env, PORT: String(E2E_PORT), HOSTNAME: "127.0.0.1" },
+    // Not 127.0.0.1: Next normalises that to "localhost" in request URLs, so proxy rewrites
+    // would no longer match the server origin and be treated as external.
+    env: { ...env, PORT: String(E2E_PORT), HOSTNAME: "0.0.0.0" },
     stdio: ["ignore", "inherit", "inherit"],
     detached: true,
   });

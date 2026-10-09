@@ -1,7 +1,9 @@
+import http from "node:http";
+
 /**
  * A cookie-keeping HTTP client for end-to-end tests: one instance per simulated person.
- * Requests to *.localhost hosts are sent to the test server with the right Host header, so
- * newspaper hosts work without DNS.
+ * Every request goes to the local test server with the URL's host as the Host header, so
+ * newspaper hosts (tarunbharat.localhost, ...) work without DNS.
  */
 export const E2E_PORT = Number(process.env.E2E_PORT ?? 3100);
 export const PANEL_ORIGIN = `http://localhost:${E2E_PORT}`;
@@ -29,21 +31,57 @@ export class HttpClient {
     init: { body?: string | URLSearchParams; headers?: Record<string, string> } = {},
   ): Promise<HttpResponse> {
     const target = new URL(url, PANEL_ORIGIN);
-    const headers = new Headers({ ...this.defaultHeaders, ...init.headers });
-    // Route every *.localhost host to the local server while keeping the Host header.
-    headers.set("host", target.host);
+    // node:http, not fetch: fetch silently replaces a custom Host header, and every
+    // newspaper host must reach the local server under its own name.
+    const headers: Record<string, string> = {
+      ...this.defaultHeaders,
+      ...init.headers,
+      host: target.host,
+    };
     const cookie = [...this.cookies].map(([k, v]) => `${k}=${v}`).join("; ");
-    if (cookie) headers.set("cookie", cookie);
+    if (cookie) headers.cookie = cookie;
+    const body = init.body?.toString();
     if (init.body instanceof URLSearchParams) {
-      headers.set("content-type", "application/x-www-form-urlencoded");
+      headers["content-type"] = "application/x-www-form-urlencoded";
     }
-    const res = await fetch(`http://127.0.0.1:${E2E_PORT}${target.pathname}${target.search}`, {
-      method,
-      headers,
-      body: init.body?.toString(),
-      redirect: "manual",
+    if (body !== undefined) headers["content-length"] = String(Buffer.byteLength(body));
+
+    const { status, rawHeaders, text } = await new Promise<{
+      status: number;
+      rawHeaders: string[];
+      text: string;
+    }>((resolve, reject) => {
+      const req = http.request(
+        {
+          host: "127.0.0.1",
+          port: E2E_PORT,
+          method,
+          path: `${target.pathname}${target.search}`,
+          headers,
+        },
+        (res) => {
+          const chunks: Buffer[] = [];
+          res.on("data", (c: Buffer) => chunks.push(c));
+          res.on("end", () =>
+            resolve({
+              status: res.statusCode ?? 0,
+              rawHeaders: res.rawHeaders,
+              text: Buffer.concat(chunks).toString("utf8"),
+            }),
+          );
+          res.on("error", reject);
+        },
+      );
+      req.on("error", reject);
+      if (body !== undefined) req.write(body);
+      req.end();
     });
-    for (const set of res.headers.getSetCookie()) {
+
+    const responseHeaders = new Headers();
+    for (let i = 0; i < rawHeaders.length; i += 2) {
+      responseHeaders.append(rawHeaders[i]!, rawHeaders[i + 1]!);
+    }
+    for (const set of responseHeaders.getSetCookie()) {
       const [pair] = set.split(";");
       const [name, ...value] = pair!.split("=");
       const v = value.join("=");
@@ -51,12 +89,11 @@ export class HttpClient {
         this.cookies.delete(name!.trim());
       else this.cookies.set(name!.trim(), v);
     }
-    const text = await res.text();
     return {
-      status: res.status,
-      headers: res.headers,
+      status,
+      headers: responseHeaders,
       text,
-      location: res.headers.get("location"),
+      location: responseHeaders.get("location"),
       json: <T>() => JSON.parse(text) as T,
     };
   }

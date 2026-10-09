@@ -25,6 +25,10 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+// Relative import: drizzle-kit loads this file without the "@/" path alias.
+import type { TenantTheme } from "../../domain/theme";
+
+export type { TenantTheme };
 
 export type LocalizedText = Partial<Record<"mr" | "en" | "hi", string>>;
 
@@ -212,16 +216,6 @@ export const passwordResets = pgTable(
 // ---------------------------------------------------------------------------
 // 3.2 Newspapers and plans
 // ---------------------------------------------------------------------------
-
-export type TenantTheme = {
-  primary: string;
-  accent: string;
-  bg: string;
-  ink: string;
-  muted: string;
-  headingFont: string;
-  bodyFont: string;
-};
 
 export const tenants = pgTable(
   "tenants",

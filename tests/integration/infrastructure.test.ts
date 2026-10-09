@@ -196,15 +196,13 @@ describe("database invariants (doc 03.7)", () => {
       })
       .returning();
     await expect(
-      db()
-        .insert(schema.articleVersions)
-        .values({
-          articleId: article!.id,
-          tenantId: paperC!.id,
-          language: "en",
-          headline: "x",
-          state: "with_publisher",
-        }),
+      db().insert(schema.articleVersions).values({
+        articleId: article!.id,
+        tenantId: paperC!.id,
+        language: "en",
+        headline: "x",
+        state: "with_publisher",
+      }),
     ).rejects.toThrow();
   });
 
