@@ -24,6 +24,8 @@ export const organisations = [
     slug: "sample-general-insurer",
     type: "institution",
     name: "Sample General Insurer",
+    // Not the default 365, so the retention a lead gets can be traced to its sponsor (D37).
+    leadRetentionDays: 180,
     blurb: {
       en: "Sample General Insurer is a fictional health and motor insurer used for demonstrations.",
       mr: "सॅम्पल जनरल इन्शुरर ही प्रात्यक्षिकासाठी वापरलेली काल्पनिक आरोग्य व वाहन विमा कंपनी आहे.",
@@ -46,6 +48,7 @@ export const organisations = [
   type: "institution" | "publisher" | "abcfinance";
   name: string;
   blurb?: LocalizedText;
+  leadRetentionDays?: number;
 }>;
 
 export type OrgSlug = (typeof organisations)[number]["slug"];

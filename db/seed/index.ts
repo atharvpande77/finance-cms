@@ -22,6 +22,7 @@ async function main() {
         type: o.type,
         name: o.name,
         blurb: "blurb" in o ? o.blurb : {},
+        leadRetentionDays: "leadRetentionDays" in o ? o.leadRetentionDays : undefined,
       })),
     )
     .onConflictDoNothing({ target: schema.organisations.slug });

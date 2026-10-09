@@ -34,3 +34,31 @@ export function passwordChangedEmail(person: { name: string }, at: Date) {
     ].join("\n"),
   };
 }
+
+/**
+ * "New lead" to a sponsor's account admins (04.6, 05.4). Deliberately without the reader's name,
+ * number or city (D36): those are seen in the Leads inbox, after signing in.
+ */
+export function newLeadEmail(lead: {
+  sponsor: string;
+  paper: string;
+  interest: string;
+  sourceUrl: string;
+  at: Date;
+}) {
+  return {
+    subject: `New enquiry from ${lead.paper}: ${lead.interest}`,
+    body: [
+      `A reader asked ${lead.sponsor} to contact them.`,
+      "",
+      `Newspaper: ${lead.paper}`,
+      `Interested in: ${lead.interest}`,
+      `Page: ${lead.sourceUrl}`,
+      `Received: ${indianTime(lead.at)} (India time)`,
+      "",
+      `See their details in your Leads inbox: ${publicUrl("/leads")}`,
+      "",
+      "For their privacy, this email doesn't include their name or number.",
+    ].join("\n"),
+  };
+}

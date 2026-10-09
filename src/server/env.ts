@@ -61,6 +61,12 @@ export function env(): Env {
       throw new Error(`Invalid environment:\n${problems}`);
     }
     cached = parsed.data;
+    if (cached.NODE_ENV === "production" && !cached.TRUST_PROXY) {
+      // Without it every reader shares one address for the per-address limits (D38).
+      console.warn(
+        "TRUST_PROXY is not set: all requests share one client address for rate limits.",
+      );
+    }
   }
   return cached;
 }

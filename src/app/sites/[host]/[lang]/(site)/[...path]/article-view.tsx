@@ -14,6 +14,7 @@ import {
 } from "@/server/content/queries";
 import { ArticleBody } from "@/components/reader/ArticleBody";
 import { CalculatorBlock } from "@/components/reader/calculators/CalculatorBlock";
+import { LeadBlock } from "@/components/reader/LeadBlock";
 import type { BrandContext } from "@/domain/sponsor";
 import { ArticleCard } from "@/components/reader/ArticleCard";
 import { ArticleLabel } from "@/components/reader/Labels";
@@ -149,10 +150,27 @@ export async function ArticleView(params: ArticleParams) {
             articleType={copy.type}
             linkHosts={site.tenant.hosts}
             renderCalculator={(calc) => (
-              <CalculatorBlock site={site} slug={calc.slug} context={brandContext(copy)} embedded />
+              <CalculatorBlock
+                site={site}
+                slug={calc.slug}
+                context={brandContext(copy)}
+                versionId={copy.versionId}
+                embedded
+              />
             )}
           />
         </div>
+
+        {/* Every institution article ends with a lead form for that institution (04.6). */}
+        {copy.type === "institution" ? (
+          <div className="mt-10">
+            <LeadBlock
+              site={site}
+              source={{ kind: "article", versionId: copy.versionId }}
+              id="lead-form"
+            />
+          </div>
+        ) : null}
 
         <div className="mt-10">
           <Disclaimer text={disclaimer} lang={lang} />

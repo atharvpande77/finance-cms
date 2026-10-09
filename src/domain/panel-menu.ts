@@ -43,7 +43,6 @@ const AREAS: readonly (MenuItem & { allowed: (ms: readonly Membership[]) => bool
     area: "leads",
     href: "/leads",
     label: "Leads",
-    arrives: "M4",
     allowed: (ms) => can(ms, "leads.view"),
   },
   {

@@ -284,3 +284,55 @@ function (`src/domain/sponsor.ts`):
   with no lead call-to-action and abcfinance's rates. This applies even on another institution's
   own article in that section; the article's end-of-article lead form for its author stays (M4b).
 
+## D35. Lead capture is a Server Action on the newspaper's own page (2026-10-09, M4b)
+
+The handover gives no path for submitting a lead. As with the panel (D21), the form posts a
+Server Action from the reader page itself, so it works without JavaScript and its errors and
+thank-you are drawn in place. Action ids are global, so the action trusts nothing from the
+form: the paper comes from the `Host` header, the `Origin` must be that same host (Next also
+checks this), and the sponsor is worked out on the server from what the form points at (a
+published institution article on this paper, or a calculator whose branding there offers a
+call-to-action, D34). The source page is rebuilt on the server too. Staging papers capture
+leads exactly like live ones (user decision). The proxy now removes any page headers a client
+sends to the panel host.
+
+## D36. The new-lead email carries no personal details (2026-10-09, M4b, user decision; for the business)
+
+04.6 and 05.4 say each new lead emails the sponsor's account admins "with the details". Email
+leaves our control (the mail provider and inboxes keep copies that our erasure and retention
+can't reach), so the email names the paper, the interest, the page and the time, and links to
+the Leads inbox. Name, mobile and city are seen only after signing in with two-step
+verification. **To confirm with the business.**
+
+## D37. Lead retention comes from the sponsor organisation (2026-10-09, M4b)
+
+Doc 08 says the retention date is set "from the sponsor's contract", but contracts in doc 03
+are with newspapers, and doc 03 gives `Organisation.leadRetentionDays` (default 365). A lead is
+erased `leadRetentionDays` after it arrives, using its sponsor's value. The seed gives the
+General Insurer 180 days so tests can tell the source apart.
+
+## D38. Lead limits and erasure, in detail (2026-10-09, M4b)
+
+- The 5-per-hour limit counts valid submissions per address (keyed hash); a filled honeypot
+  and invalid forms count toward nothing.
+- The 3-per-day limit counts **stored leads** for a phone number over a sliding 24 hours,
+  under a per-number database lock, so simultaneous submissions can't get past it. Erased
+  leads no longer count.
+- A repeat to the same sponsor within 24 hours stores nothing and tells the reader "we already
+  have your request" (TESTING.md's wording), and doesn't count toward the phone limit.
+- Erasing (on request or at retention) also blanks the address hash and the sponsor's note,
+  which may name the person. The consent record and status stay.
+- The CSV export is a POST from the panel's own form (a link elsewhere can't start downloads in
+  someone's name), and every cell is quoted with formula characters neutralised.
+
+## D39. Marathi consent text and interest labels are drafts (2026-10-09, M4b)
+
+The handover gives only the English consent wording and says Marathi labels exist. Ours, in
+`src/domain/leads.ts`, are a first draft and, like D10, need legal and native review before
+launch (09.3 #12). The consent version stays `v1`; a reviewed wording should become `v2`.
+
+## D40. Junk % is the share of all leads (2026-10-09, M4b)
+
+04.6 lists worked %, qualified % (of worked leads that aren't junk) and junk %, without saying
+junk of what. We use junk ÷ all leads, so a sponsor sees how much of what arrives is unusable.
+

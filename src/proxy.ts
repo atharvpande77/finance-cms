@@ -38,9 +38,12 @@ export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   if (isPanelHost(rawHost)) {
-    return pathname === "/sites" || pathname.startsWith("/sites/")
-      ? notFound()
-      : NextResponse.next();
+    if (pathname === "/sites" || pathname.startsWith("/sites/")) return notFound();
+    // The page headers are ours to set; a client's own copies never reach the panel.
+    const headers = new Headers(request.headers);
+    headers.delete(PAGE_PATH_HEADER);
+    headers.delete(PAGE_LANG_HEADER);
+    return NextResponse.next({ request: { headers } });
   }
 
   const tenant = await tenantByHost(rawHost);

@@ -34,12 +34,23 @@ async function publishDeemed(now: Date): Promise<number> {
   return (await publishDue(now)).length;
 }
 
-/** Blanks personal fields of leads past retention; the consent record and status stay (04.6). */
+/**
+ * Blanks personal fields of leads past retention (and the hashes and note, D38); the consent
+ * record and status stay (04.6).
+ */
 export async function eraseExpiredLeads(now: Date): Promise<number> {
   const t = schema.leads;
   const rows = await db()
     .update(t)
-    .set({ nameEnc: null, phoneEnc: null, cityEnc: null, phoneHash: null, erasedAt: now })
+    .set({
+      nameEnc: null,
+      phoneEnc: null,
+      cityEnc: null,
+      phoneHash: null,
+      ipHash: null,
+      note: null,
+      erasedAt: now,
+    })
     .where(and(lte(t.deleteAfter, now), isNull(t.erasedAt)))
     .returning({ id: t.id });
   return rows.length;

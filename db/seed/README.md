@@ -98,6 +98,11 @@ copy carries a release note for its editor.
 No rates are seeded: every calculator starts on the built-in defaults dated 1 October 2026. The
 ranges and reader defaults are ours (D32), in `src/domain/calc/fields.ts`.
 
+## Leads (M4b)
+
+No demo leads: the inbox starts empty, as TESTING.md expects. The General Insurer keeps leads
+for 180 days instead of the default 365 (D37).
+
 ## Still to add
 
 - **M5:** 45 days of traffic.
