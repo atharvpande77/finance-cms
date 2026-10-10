@@ -37,6 +37,8 @@ async function editingArticle(
     language?: "en" | "mr";
     section?: string;
     body?: string;
+    /** Papers the institution's approver chose (institution articles; default: all). */
+    chosen?: string[];
   } = {},
 ) {
   const orgs = await db().select().from(schema.organisations);
@@ -63,6 +65,17 @@ async function editingArticle(
       state: "editing",
     })
     .returning();
+  if (article!.type === "institution") {
+    const tenants = await db().select().from(schema.tenants);
+    const chosen = tenants.filter((t) =>
+      (opts.chosen ?? tenants.map((x) => x.slug)).includes(t.slug),
+    );
+    if (chosen.length) {
+      await db()
+        .insert(schema.articleTargets)
+        .values(chosen.map((t) => ({ articleId: article!.id, tenantId: t.id })));
+    }
+  }
   return { articleId: article!.id, versionId: version!.id };
 }
 
@@ -266,22 +279,31 @@ describe("what the editor decides at release (D43, D44)", () => {
     ).toMatchObject({ ok: false });
   });
 
-  it("pre-ticks the papers on the institution's plan, and none for abcfinance's own", async () => {
+  it("sends an institution article only to the papers its approver chose (D46)", async () => {
     const editor = await actor("editor.abc");
-    const amc = await editingArticle({ org: "sample-amc", type: "institution", language: "mr" });
-    const ticked = async (versionId: string) =>
-      (await releasePreview(editor, versionId))!.papers
-        .filter((p) => p.targeted)
-        .map((p) => p.slug);
-    expect((await ticked(amc.versionId)).sort()).toEqual(["paperb", "tarunbharat"]);
-    const gi = await editingArticle({
-      org: "sample-general-insurer",
+    const amc = await editingArticle({
+      org: "sample-amc",
       type: "institution",
       language: "mr",
+      chosen: ["tarunbharat"],
     });
-    expect((await ticked(gi.versionId)).sort()).toEqual(["paperb", "paperc", "tarunbharat"]);
+    const preview = (await releasePreview(editor, amc.versionId))!;
+    const bySlug = new Map(preview.papers.map((p) => [p.slug, p]));
+    expect(bySlug.get("tarunbharat")).toMatchObject({ targeted: true, plan: { action: "create" } });
+    expect(bySlug.get("paperb")!.plan).toEqual({
+      action: "refuse",
+      reason: "Not chosen by Sample AMC",
+    });
+    const refused = await releaseTo(amc.versionId, ["tarunbharat", "paperb"]);
+    expect(refused).toMatchObject({ ok: false });
+    expect(!refused.ok && refused.error).toContain("Sample AMC didn't choose");
+    expect(await copyOn(amc.articleId, "paperb", "mr")).toBeUndefined();
+    expect(await releaseTo(amc.versionId, ["tarunbharat"])).toMatchObject({ ok: true });
+    // abcfinance's own articles: any paper, none pre-ticked.
     const own = await editingArticle({ language: "mr" });
-    expect(await ticked(own.versionId)).toEqual([]);
+    const ownPreview = (await releasePreview(editor, own.versionId))!;
+    expect(ownPreview.papers.filter((p) => p.targeted)).toEqual([]);
+    expect(ownPreview.papers.find((p) => p.slug === "paperb")!.plan.action).toBe("create");
   });
 });
 

@@ -85,6 +85,7 @@ export async function transitionAction(
     action as TransitionAction,
     comment,
     await requestIp(),
+    form.getAll("tenantIds").map(String),
   );
   if (!result.ok) return { error: result.error, values: { comment } };
   redirect(articlePath(text(form, "articleId"), text(form, "language"), action));

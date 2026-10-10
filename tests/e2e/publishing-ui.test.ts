@@ -54,13 +54,18 @@ describe("release and the publisher queue through the real pages", () => {
     expect(res.status).toBe(200);
     expect(res.text).toContain('data-form="release"');
     expect(Object.keys(paperRules(res.text)).sort()).toEqual(["paperb", "paperc", "tarunbharat"]);
-    // The papers on the institution's plan are ticked (D43); this test institution has none.
-    expect(tickedPapers(res.text)).toEqual([]);
+    // The papers the institution's approver chose are ticked (D46): here, all three.
+    expect(tickedPapers(res.text)).toEqual(["paperb", "paperc", "tarunbharat"]);
     expect(pageText(res.text)).toContain("Send to selected papers");
+    // A paper the institution didn't choose can't be ticked.
     const amc = await readyToRelease({
       institution: { orgSlug: "sample-amc", authorSlug: "anita-kulkarni" },
+      targets: ["tarunbharat", "paperb"],
     });
-    expect(tickedPapers((await editor.get(amc.url)).text)).toEqual(["paperb", "tarunbharat"]);
+    const amcPage = (await editor.get(amc.url)).text;
+    expect(tickedPapers(amcPage)).toEqual(["paperb", "tarunbharat"]);
+    expect(paperRules(amcPage).paperc).toBe("unavailable");
+    expect(pageText(amcPage)).toContain("Not chosen by Sample AMC");
   });
 
   it("[E2E-UI-15] release form explains each paper's rule", async () => {

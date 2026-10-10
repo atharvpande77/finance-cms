@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, isNull, ne, or } from "drizzle-orm";
 import { db, schema } from "@/server/db/client";
 import type { SessionInfo } from "@/server/auth/sessions";
 import { copyStatus } from "@/domain/publishing";
+import { chosenPapers, planPapers } from "./papers";
 import {
   allowedActions,
   authorChoices,
@@ -211,7 +212,16 @@ export async function getForUser(session: Session, articleId: string, language: 
     .orderBy(desc(e.id));
 
   const ref = { type: article.type, organisationId: article.organisationId };
+  // An institution article's papers: those on its plan, and those its approver chose (D46).
+  const papers =
+    article.type === "institution"
+      ? {
+          plan: await planPapers(article.organisationId),
+          chosen: await chosenPapers(article.id),
+        }
+      : null;
   return {
+    papers,
     article,
     version,
     masters,

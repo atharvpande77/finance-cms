@@ -143,6 +143,13 @@ export class HttpClient {
       const key = input.getAttribute("name");
       if (key) data.append(key, input.getAttribute("value") ?? "");
     }
+    // Ticked boxes go along too, as a browser sends them (not disabled ones).
+    for (const input of form.querySelectorAll('input[type="checkbox"], input[type="radio"]')) {
+      const key = input.getAttribute("name");
+      if (key && input.hasAttribute("checked") && !input.hasAttribute("disabled")) {
+        data.append(key, input.getAttribute("value") ?? "on");
+      }
+    }
     for (const [key, value] of Object.entries(fields)) {
       data.delete(key);
       for (const v of Array.isArray(value) ? value : [value]) data.append(key, v);

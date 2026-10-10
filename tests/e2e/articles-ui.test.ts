@@ -1,5 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { parse } from "node-html-parser";
+import { eq } from "drizzle-orm";
+import { db, schema } from "@/server/db/client";
 import { pageText, siteOrigin, type HttpClient } from "../http-client";
 import { menuLinks, person, signInFully } from "./auth-helpers";
 import { BODY, createArticle, stateOf, step, type Created } from "./article-helpers";
@@ -132,9 +134,23 @@ describe("article workflow through the real pages (up to Editing)", () => {
   });
 
   it("[E2E-UI-11] approver approval moves to Compliance review", async () => {
-    const res = await step(approver, article.url, "approve");
+    // The approver chooses the newspapers from the AMC's plan, all ticked to start with (D46).
+    const page = await approver.get(article.url);
+    const offered = parse(page.text).querySelectorAll(
+      'form[data-form="approve"] input[name="tenantIds"]',
+    );
+    expect(offered).toHaveLength(2);
+    expect(pageText(page.text)).toContain("Newspapers to publish in");
+    const [tb] = await db()
+      .select()
+      .from(schema.tenants)
+      .where(eq(schema.tenants.slug, "tarunbharat"));
+    const res = await step(approver, article.url, "approve", { tenantIds: tb!.id }, page);
     expect(res.status).toBe(303);
     expect(stateOf(await approver.get(article.url))).toBe("compliance_review");
+    const after = pageText((await writer.get(article.url)).text);
+    expect(after).toContain("Chosen by Sample AMC:");
+    expect(after).toContain("Tarun Bharat");
   });
 
   it("[E2E-UI-12] compliance sees the approve button", async () => {

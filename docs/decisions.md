@@ -387,3 +387,18 @@ records who filed each demo article: the byline's own writer, or `writer.abc` fo
 
 Once released, an article's status in the list and on its page is shown per paper, for example
 "Live on Tarun Bharat" or "Waiting at Paper B", instead of only "With publisher".
+
+## D46. The institution chooses its newspapers; abcfinance's editor sends to all or some (2026-10-10, user decision; amends D43)
+
+Both sides decide where an institution article runs:
+- **the institution's approver** ticks the newspapers when approving it (In approval →
+  Compliance review), choosing only from the papers on the institution's active plans. On the
+  first approval every plan paper starts ticked; after a return, the previous choice does. Plan
+  limits are otherwise not enforced in phase 1 (09.2); this is the one place they are.
+- **abcfinance's editor** sees those papers pre-ticked on the release form and may untick any,
+  but can't add a paper the institution didn't choose (shown as "Not chosen by …", and refused
+  by the server).
+
+abcfinance's own and independent experts' articles have no institution: the editor chooses any
+papers at release, none pre-ticked. The choice is stored in `article_targets` and audited with
+the approval.

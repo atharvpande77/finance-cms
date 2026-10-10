@@ -1,22 +1,10 @@
-import {
-  and,
-  asc,
-  countDistinct,
-  eq,
-  gte,
-  inArray,
-  isNotNull,
-  isNull,
-  lte,
-  ne,
-  or,
-} from "drizzle-orm";
+import { and, asc, countDistinct, eq, inArray, isNotNull, ne } from "drizzle-orm";
 import { db, schema, type Db, type Tx } from "@/server/db/client";
 import { audit } from "@/server/audit";
 import { CONFLICT, type Actor, type ServiceResult } from "@/server/articles/service";
+import { chosenPapers } from "@/server/articles/papers";
 import { can } from "@/domain/permissions";
 import { isPlaceholderSlug } from "@/domain/slug";
-import { indianDate } from "@/domain/time";
 import { runChecks, type CheckFlag } from "@/domain/checks";
 import { canView, type ArticleType, type VersionState } from "@/domain/workflow";
 import {
@@ -55,12 +43,14 @@ async function loadMaster(conn: Db | Tx, versionId: string) {
       version: v,
       type: a.type,
       organisationId: a.organisationId,
+      organisationName: schema.organisations.name,
       createdById: a.createdById,
       sectionSlug: schema.sections.slug,
     })
     .from(v)
     .innerJoin(a, eq(a.id, v.articleId))
     .innerJoin(schema.sections, eq(schema.sections.id, a.sectionId))
+    .innerJoin(schema.organisations, eq(schema.organisations.id, a.organisationId))
     .where(eq(v.id, versionId));
   return row?.version.tenantId === null ? row : undefined;
 }
@@ -150,27 +140,19 @@ export async function releasePreview(
   ) {
     return null;
   }
-  // Pre-ticked: the papers on the institution's active plans (D43); none for abcfinance's own.
-  const today = indianDate(new Date());
-  const [papers, planned] = await Promise.all([
+  // An institution article goes only to the papers its approver chose, all pre-ticked (D46);
+  // abcfinance's own and experts' articles to any paper, none pre-ticked.
+  const [papers, chosen] = await Promise.all([
     db().select().from(t).orderBy(asc(t.slug)),
-    master.type === "institution"
-      ? db()
-          .select({ tenantId: schema.planTenants.tenantId })
-          .from(schema.planTenants)
-          .innerJoin(schema.plans, eq(schema.plans.id, schema.planTenants.planId))
-          .where(
-            and(
-              eq(schema.plans.sponsorOrgId, master.organisationId),
-              lte(schema.plans.startsOn, today),
-              or(isNull(schema.plans.endsOn), gte(schema.plans.endsOn, today)),
-            ),
-          )
-      : Promise.resolve([]),
+    master.type === "institution" ? chosenPapers(master.version.articleId) : Promise.resolve(null),
   ]);
   const { flags } = runChecks(master.version);
-  const targeted = new Set(planned.map((x) => x.tenantId));
-  const plans = await plansFor(db(), master, papers, flags.length > 0);
+  const targeted = new Set(chosen ?? []);
+  const plans = (await plansFor(db(), master, papers, flags.length > 0)).map((p): PaperPlan =>
+    chosen && !targeted.has(p.id) && p.plan.action === "create"
+      ? { ...p, plan: { action: "refuse", reason: `Not chosen by ${master.organisationName}` } }
+      : p,
+  );
   return {
     papers: plans
       .map((p) => ({ ...p, targeted: targeted.has(p.id) }))
@@ -207,6 +189,16 @@ export async function release(
   }
   const chosen = [...new Set(tenantIds)];
   if (chosen.length === 0) return { ok: false, error: "Choose at least one newspaper." };
+  if (master.type === "institution") {
+    // Only papers the institution's approver chose (D46).
+    const allowed = new Set(await chosenPapers(master.version.articleId));
+    if (chosen.some((id) => !allowed.has(id))) {
+      return {
+        ok: false,
+        error: `${master.organisationName} didn't choose every newspaper you ticked. Untick the others.`,
+      };
+    }
+  }
   const note = rawNote?.trim().slice(0, MAX_NOTE) || null;
 
   return db().transaction(async (tx) => {

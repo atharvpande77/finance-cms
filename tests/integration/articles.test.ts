@@ -50,6 +50,11 @@ async function newAmcArticle(headline = `Debt funds for steady savers ${unique()
   return { writer, articleId: created.articleId, version: version!, article: article! };
 }
 
+async function tenant(slug: string) {
+  const [row] = await db().select().from(schema.tenants).where(eq(schema.tenants.slug, slug));
+  return row!.id;
+}
+
 async function rev(versionId: string) {
   const [v] = await db()
     .select()
@@ -242,7 +247,9 @@ describe("the approval chain", () => {
       ok: false,
       code: "comment",
     });
-    expect((await transition(approver, v.id, v.rev, "approve", null, IP)).ok).toBe(true);
+    expect(
+      (await transition(approver, v.id, v.rev, "approve", null, IP, [await tenant("paperb")])).ok,
+    ).toBe(true);
     v = await rev(version.id);
     expect((await transition(compliance, v.id, v.rev, "approve", "Fine for English", IP)).ok).toBe(
       true,
@@ -330,6 +337,34 @@ describe("visibility", () => {
       state: "in_approval",
       yourTurn: true,
     });
+  });
+});
+
+describe("the institution chooses its newspapers (D46)", () => {
+  it("makes the approver choose papers from the plan when approving", async () => {
+    const { writer, version, articleId } = await newAmcArticle();
+    const approver = await actor("approver.amc");
+    await transition(writer, version.id, version.rev, "submit", null, IP);
+    const v = await rev(version.id);
+    expect(await transition(approver, v.id, v.rev, "approve", null, IP, [])).toMatchObject({
+      ok: false,
+      error: "Choose at least one newspaper.",
+    });
+    // Paper C isn't on the AMC's plan.
+    expect(
+      await transition(approver, v.id, v.rev, "approve", null, IP, [await tenant("paperc")]),
+    ).toMatchObject({ ok: false, error: "Choose newspapers on your plan." });
+    expect((await rev(version.id)).state).toBe("in_approval");
+    const tb = await tenant("tarunbharat");
+    expect((await transition(approver, v.id, v.rev, "approve", null, IP, [tb])).ok).toBe(true);
+    const targets = await db()
+      .select()
+      .from(schema.articleTargets)
+      .where(eq(schema.articleTargets.articleId, articleId));
+    expect(targets.map((t) => t.tenantId)).toEqual([tb]);
+    const page = await getForUser(approver, articleId, "en");
+    expect(page!.papers).toMatchObject({ chosen: [tb] });
+    expect(page!.papers!.plan.map((p) => p.slug)).toEqual(["paperb", "tarunbharat"]);
   });
 });
 

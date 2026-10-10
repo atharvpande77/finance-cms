@@ -53,6 +53,49 @@ export function StepForm({
   );
 }
 
+/**
+ * The institution approver's step: approve, choosing the newspapers from the institution's plan
+ * (D46). abcfinance's editor later sends it to all or some of these.
+ */
+export function ApproveWithPapersForm({
+  ids,
+  papers,
+  chosen,
+}: {
+  ids: Ids;
+  papers: { id: string; name: string }[];
+  chosen: string[];
+}) {
+  const [state, formAction] = useActionState<ArticleFormState, FormData>(transitionAction, {});
+  // First approval: every plan paper ticked; after a return, what was chosen before.
+  const ticked = chosen.length ? chosen : papers.map((p) => p.id);
+  return (
+    <form action={formAction} data-form="approve" className="grid gap-3">
+      <Hidden ids={ids} action="approve" />
+      <FormError message={state.error} />
+      <fieldset className="grid gap-2" data-choose-papers>
+        <legend className="mb-1 text-sm font-medium">Newspapers to publish in</legend>
+        {papers.map((p) => (
+          <label key={p.id} className="flex min-h-9 items-center gap-2.5 text-sm">
+            <input
+              type="checkbox"
+              name="tenantIds"
+              value={p.id}
+              defaultChecked={ticked.includes(p.id)}
+              className="size-4 accent-primary"
+            />
+            {p.name}
+          </label>
+        ))}
+        <p className="text-xs text-pretty text-muted-foreground">
+          The papers on your plan. abcfinance&apos;s editor sends it to all or some of these.
+        </p>
+      </fieldset>
+      <SubmitButton className="w-full">Approve</SubmitButton>
+    </form>
+  );
+}
+
 /** Returning always needs a comment (04.2). */
 export function ReturnForm({ ids, label }: { ids: Ids; label: string }) {
   const [state, formAction] = useActionState<ArticleFormState, FormData>(transitionAction, {});

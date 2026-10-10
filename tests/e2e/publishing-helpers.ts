@@ -76,7 +76,8 @@ export async function readyToRelease(
   await db()
     .insert(schema.articleTargets)
     .values(
-      (opts.targets ?? ["tarunbharat", "paperb"]).map((t) => ({
+      // For an institution article, the papers its approver chose (D46): all three by default.
+      (opts.targets ?? ["tarunbharat", "paperb", "paperc"]).map((t) => ({
         articleId: article!.id,
         tenantId: ids.tenant(t),
       })),

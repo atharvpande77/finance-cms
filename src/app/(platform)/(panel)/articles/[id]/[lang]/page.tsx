@@ -7,7 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArticleBody } from "@/components/reader/ArticleBody";
 import { ArticleEditor } from "@/components/panel/ArticleEditor";
-import { AddLanguageForm, ReturnForm, StepForm } from "@/components/panel/WorkflowActions";
+import {
+  AddLanguageForm,
+  ApproveWithPapersForm,
+  ReturnForm,
+  StepForm,
+} from "@/components/panel/WorkflowActions";
 import { ReleaseForm, type ReleasePaper } from "@/components/panel/PublishingForms";
 import {
   COPY_BADGE,
@@ -51,6 +56,38 @@ const WAITING: Partial<Record<VersionState, string>> = {
   editing: "With abcfinance's editors.",
   with_publisher: "With the newspapers. Each paper's editor decides on their own copy.",
 };
+
+/** Before release: who picks the papers, and what the institution chose (D46). */
+function PapersBeforeRelease({
+  papers,
+  organisationName,
+}: {
+  papers: { plan: { id: string; name: string }[]; chosen: string[] } | null;
+  organisationName: string;
+}) {
+  if (!papers) {
+    return (
+      <p className="text-sm text-pretty text-muted-foreground" data-papers-later>
+        abcfinance&apos;s editor chooses the newspapers when releasing it.
+      </p>
+    );
+  }
+  const chosen = papers.plan.filter((p) => papers.chosen.includes(p.id));
+  return chosen.length ? (
+    <div className="grid gap-1 text-sm" data-papers-chosen>
+      <p className="text-muted-foreground">Chosen by {organisationName}:</p>
+      <ul className="grid gap-0.5">
+        {chosen.map((p) => (
+          <li key={p.id}>{p.name}</li>
+        ))}
+      </ul>
+    </div>
+  ) : (
+    <p className="text-sm text-pretty text-muted-foreground" data-papers-later>
+      {organisationName}&apos;s approver chooses the newspapers when approving it.
+    </p>
+  );
+}
 
 /** Each paper on the release form, with what will happen there (04.3). */
 function releasePapers(preview: ReleasePreview): ReleasePaper[] {
@@ -178,7 +215,13 @@ export default async function ArticlePage({
                 hint="Save your changes first: the saved version is what gets submitted."
               />
             ) : null}
-            {actions.includes("approve") ? (
+            {actions.includes("approve") && version.state === "in_approval" && data.papers ? (
+              <ApproveWithPapersForm
+                ids={ids}
+                papers={data.papers.plan}
+                chosen={data.papers.chosen}
+              />
+            ) : actions.includes("approve") ? (
               <StepForm
                 ids={ids}
                 action="approve"
@@ -322,9 +365,10 @@ export default async function ArticlePage({
                   })}
                 </ul>
               ) : (
-                <p className="text-sm text-pretty text-muted-foreground" data-papers-later>
-                  abcfinance&apos;s editor chooses the newspapers when releasing it.
-                </p>
+                <PapersBeforeRelease
+                  papers={data.papers}
+                  organisationName={article.organisationName}
+                />
               )}
             </CardContent>
           </Card>

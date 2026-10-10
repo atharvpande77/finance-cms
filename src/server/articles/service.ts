@@ -4,6 +4,7 @@ import { db, schema, type Tx } from "@/server/db/client";
 import { audit } from "@/server/audit";
 import type { SessionInfo } from "@/server/auth/sessions";
 import { ensureOwnProfile } from "./authors";
+import { planPapers } from "./papers";
 import { randomInt } from "node:crypto";
 import { initialSlug, isPlaceholderSlug, isSlug } from "@/domain/slug";
 import { addMonthsToDay, indianDate } from "@/domain/time";
@@ -317,6 +318,8 @@ export async function transition(
   action: TransitionAction,
   comment: string | null,
   ip: string,
+  /** The newspapers the institution's approver chooses when approving (D46). */
+  tenantIds: readonly string[] = [],
 ): Promise<ServiceResult<{ state: VersionState }>> {
   const row = await loadVersion(versionId);
   if (!row || !canView(actor.memberships, row, actor.user.id))
@@ -337,6 +340,24 @@ export async function transition(
       code: "comment",
     };
   }
+  // The institution's approver chooses its papers, from its plan, when approving (D46).
+  let papers: string[] | null = null;
+  if (action === "approve" && version.state === "in_approval" && row.type === "institution") {
+    const allowed = await planPapers(row.organisationId);
+    if (allowed.length === 0) {
+      return {
+        ok: false,
+        error: "Your institution has no newspapers on an active plan. Ask abcfinance.",
+      };
+    }
+    papers = [...new Set(tenantIds)];
+    if (papers.length === 0) {
+      return { ok: false, error: "Choose at least one newspaper.", code: "papers" };
+    }
+    if (papers.some((id) => !allowed.some((p) => p.id === id))) {
+      return { ok: false, error: "Choose newspapers on your plan.", code: "papers" };
+    }
+  }
   if (action === "submit") {
     const problems = validateSubmit(version);
     if (problems.includes("headline_required"))
@@ -354,7 +375,25 @@ export async function transition(
       .where(and(eq(v.id, versionId), eq(v.rev, rev), eq(v.state, version.state)))
       .returning({ id: v.id });
     if (moved.length === 0) return { ok: false as const, error: CONFLICT, code: "conflict" };
-    await event(tx, actor, versionId, action, version.state, to, note, ip);
+    if (papers) {
+      await tx
+        .delete(schema.articleTargets)
+        .where(eq(schema.articleTargets.articleId, version.articleId));
+      await tx
+        .insert(schema.articleTargets)
+        .values(papers.map((tenantId) => ({ articleId: version.articleId, tenantId })));
+    }
+    await event(
+      tx,
+      actor,
+      versionId,
+      action,
+      version.state,
+      to,
+      note,
+      ip,
+      papers ? { papers } : {},
+    );
     return { ok: true as const, state: to };
   });
 }
