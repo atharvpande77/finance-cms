@@ -1,8 +1,22 @@
-import { and, asc, countDistinct, eq, inArray, isNotNull, ne } from "drizzle-orm";
+import {
+  and,
+  asc,
+  countDistinct,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  ne,
+  or,
+} from "drizzle-orm";
 import { db, schema, type Db, type Tx } from "@/server/db/client";
 import { audit } from "@/server/audit";
 import { CONFLICT, type Actor, type ServiceResult } from "@/server/articles/service";
 import { can } from "@/domain/permissions";
+import { isPlaceholderSlug } from "@/domain/slug";
+import { indianDate } from "@/domain/time";
 import { runChecks, type CheckFlag } from "@/domain/checks";
 import { canView, type ArticleType, type VersionState } from "@/domain/workflow";
 import {
@@ -131,15 +145,26 @@ export async function releasePreview(
   if (!master || !canView(actor.memberships, master) || !mayRelease(actor, master.version.state)) {
     return null;
   }
-  const [papers, targets] = await Promise.all([
+  // Pre-ticked: the papers on the institution's active plans (D43); none for abcfinance's own.
+  const today = indianDate(new Date());
+  const [papers, planned] = await Promise.all([
     db().select().from(t).orderBy(asc(t.slug)),
-    db()
-      .select({ tenantId: schema.articleTargets.tenantId })
-      .from(schema.articleTargets)
-      .where(eq(schema.articleTargets.articleId, master.version.articleId)),
+    master.type === "institution"
+      ? db()
+          .select({ tenantId: schema.planTenants.tenantId })
+          .from(schema.planTenants)
+          .innerJoin(schema.plans, eq(schema.plans.id, schema.planTenants.planId))
+          .where(
+            and(
+              eq(schema.plans.sponsorOrgId, master.organisationId),
+              lte(schema.plans.startsOn, today),
+              or(isNull(schema.plans.endsOn), gte(schema.plans.endsOn, today)),
+            ),
+          )
+      : Promise.resolve([]),
   ]);
   const { flags } = runChecks(master.version);
-  const targeted = new Set(targets.map((x) => x.tenantId));
+  const targeted = new Set(planned.map((x) => x.tenantId));
   const plans = await plansFor(db(), master, papers, flags.length > 0);
   return {
     papers: plans
@@ -166,6 +191,14 @@ export async function release(
     return master.version.rev !== rev
       ? { ok: false, error: CONFLICT, code: "conflict" }
       : { ok: false, error: NOT_ALLOWED, code: "forbidden" };
+  }
+  // D44: the editor sets a real web address first.
+  const [art] = await db()
+    .select({ slug: a.slug })
+    .from(a)
+    .where(eq(a.id, master.version.articleId));
+  if (isPlaceholderSlug(art!.slug)) {
+    return { ok: false, error: "Set the web address before sending it to the newspapers." };
   }
   const chosen = [...new Set(tenantIds)];
   if (chosen.length === 0) return { ok: false, error: "Choose at least one newspaper." };

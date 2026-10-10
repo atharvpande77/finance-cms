@@ -58,7 +58,10 @@ async function main() {
   await d
     .insert(schema.authors)
     .values(
-      data.authors.map(({ org, ...a }) => ({ ...a, organisationId: org ? orgId(org) : null })),
+      data.authors.map(({ org, user: _user, ...a }) => ({
+        ...a,
+        organisationId: org ? orgId(org) : null,
+      })),
     )
     .onConflictDoNothing({ target: schema.authors.slug });
 
@@ -93,6 +96,15 @@ async function main() {
       ),
     )
     .onConflictDoNothing();
+
+  // Each linked byline is that demo writer's own profile (D42).
+  for (const a of data.authors) {
+    if (!a.user) continue;
+    await d
+      .update(schema.authors)
+      .set({ userId: userId(a.user) })
+      .where(eq(schema.authors.slug, a.slug));
+  }
 
   // Commercial set-up: sponsorships, plans, contracts (matched on their natural keys).
   for (const s of data.sponsorships) {

@@ -3,6 +3,7 @@ import { db, schema } from "@/server/db/client";
 import type { SessionInfo } from "@/server/auth/sessions";
 import {
   allowedActions,
+  authorChoices,
   canView,
   isAuthorSide,
   isYourTurn,
@@ -151,18 +152,6 @@ export async function getForUser(session: Session, articleId: string, language: 
   const version = masters.find((m) => m.language === language);
   if (!version) return null;
 
-  const targets = await db()
-    .select({
-      id: schema.tenants.id,
-      name: schema.tenants.name,
-      languages: schema.tenants.languages,
-    })
-    .from(schema.articleTargets)
-    .innerJoin(schema.tenants, eq(schema.tenants.id, schema.articleTargets.tenantId))
-    .where(eq(schema.articleTargets.articleId, articleId));
-
-  // The masters' steps and the papers' decisions. A copy's own "release" event repeats the
-  // master's, so it is left out.
   const e = schema.workflowEvents;
   const history = await db()
     .select({
@@ -189,57 +178,59 @@ export async function getForUser(session: Session, articleId: string, language: 
     article,
     version,
     masters,
-    targets,
     history,
     actions: allowedActions(session.memberships, ref, version),
     canAddLanguage: isAuthorSide(session.memberships, ref),
   };
 }
 
-/** Choices for the new-article form: sections, papers, and the author profiles allowed. */
-export async function formOptions(session: Session) {
-  const [sections, tenants, authors] = await Promise.all([
-    db().select({ id: s.id, slug: s.slug, name: s.name }).from(s).orderBy(asc(s.sortOrder)),
-    db()
-      .select({
-        id: schema.tenants.id,
-        name: schema.tenants.name,
-        languages: schema.tenants.languages,
-      })
-      .from(schema.tenants)
-      .orderBy(asc(schema.tenants.slug)),
-    db()
-      .select({
-        id: schema.authors.id,
-        name: schema.authors.name,
-        organisationId: schema.authors.organisationId,
-        contributorType: schema.authors.contributorType,
-      })
-      .from(schema.authors)
-      .orderBy(asc(schema.authors.name)),
-  ]);
-  return { sections, tenants, authors: authors.filter((au) => authorAllowed(session, au)) };
-}
+export type WrittenAsOption = {
+  value: string;
+  label: string;
+  type: "institution" | "abcfinance" | "independent";
+};
 
 /**
- * D24: institution authors write under their institution's profiles; abcfinance writers and
- * editors under staff profiles or as an independent expert.
+ * Choices for the new-article form: sections, and what the person may file as (D42). One
+ * choice means no "Written by" field: the writer is the author.
  */
-export function authorAllowed(
-  session: Session,
-  author: {
-    organisationId: string | null;
-    contributorType: "staff" | "institution" | "independent";
-  },
-): boolean {
-  if (author.contributorType === "institution") {
-    return (
-      author.organisationId !== null &&
-      isAuthorSide(session.memberships, {
-        type: "institution",
-        organisationId: author.organisationId,
-      })
-    );
-  }
-  return isAuthorSide(session.memberships, { type: "abcfinance", organisationId: "" });
+export async function formOptions(session: Session & { user: { name: string } }) {
+  const choices = authorChoices(session.memberships);
+  const [sections, experts] = await Promise.all([
+    db().select({ id: s.id, slug: s.slug, name: s.name }).from(s).orderBy(asc(s.sortOrder)),
+    choices.some((c) => c.kind === "expert")
+      ? db()
+          .select({ id: schema.authors.id, name: schema.authors.name })
+          .from(schema.authors)
+          .where(eq(schema.authors.contributorType, "independent"))
+          .orderBy(asc(schema.authors.name))
+      : Promise.resolve([]),
+  ]);
+  const orgName = (id: string) =>
+    session.memberships.find((m) => m.organisationId === id)?.organisationName ?? "";
+  const writtenAs: WrittenAsOption[] = choices.flatMap((c): WrittenAsOption[] => {
+    if (c.kind === "expert") {
+      return experts.map((e) => ({
+        value: `expert:${e.id}`,
+        label: `${e.name} (independent expert)`,
+        type: "independent",
+      }));
+    }
+    return c.type === "institution"
+      ? [
+          {
+            value: `self:${c.organisationId}`,
+            label: `${session.user.name}, for ${orgName(c.organisationId)}`,
+            type: "institution",
+          },
+        ]
+      : [
+          {
+            value: "self:abcfinance",
+            label: `${session.user.name} (abcfinance)`,
+            type: "abcfinance",
+          },
+        ];
+  });
+  return { sections, writtenAs };
 }

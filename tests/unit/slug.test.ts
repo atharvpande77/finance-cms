@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isSlug, suggestSlug } from "@/domain/slug";
+import { initialSlug, isPlaceholderSlug, isSlug, suggestSlug } from "@/domain/slug";
 
 describe("article slugs", () => {
   it("suggests a slug from a Latin headline", () => {
@@ -26,5 +26,20 @@ describe("article slugs", () => {
     expect(isSlug("-sip")).toBe(false);
     expect(isSlug("एसआयपी")).toBe(false);
     expect(isSlug("a".repeat(81))).toBe(false);
+  });
+});
+
+describe("web addresses set by the editor (D44)", () => {
+  it("starts readable from an English headline, else as a placeholder", () => {
+    expect(initialSlug("Index funds, explained", "abc123")).toBe("index-funds-explained");
+    expect(initialSlug("इंडेक्स फंड म्हणजे काय?", "abc123")).toBe("draft-abc123");
+    // A headline that would itself look like a placeholder gets one for real.
+    expect(initialSlug("Draft rules for gold loans", "abc123")).toBe("draft-abc123");
+    expect(initialSlug("??", "zz9zz9")).toBe("draft-zz9zz9");
+  });
+
+  it("recognises placeholders", () => {
+    expect(isPlaceholderSlug("draft-abc123")).toBe(true);
+    expect(isPlaceholderSlug("sip-basics")).toBe(false);
   });
 });

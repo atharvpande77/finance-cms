@@ -336,6 +336,8 @@ export const authors: Array<{
   name: string;
   org: OrgSlug | null;
   contributorType: "staff" | "institution" | "independent";
+  /** The demo writer whose own byline this is (D42). */
+  user?: string;
   credentials: LocalizedText;
   bio: LocalizedText;
   disclosedAffiliations?: string[];
@@ -345,6 +347,7 @@ export const authors: Array<{
 }> = [
   {
     slug: "anita-kulkarni",
+    user: "writer.amc",
     name: "Anita Kulkarni",
     org: "sample-amc",
     contributorType: "institution",
@@ -359,6 +362,7 @@ export const authors: Array<{
   },
   {
     slug: "rahul-deshmukh",
+    user: "writer.gi",
     name: "Rahul Deshmukh",
     org: "sample-general-insurer",
     contributorType: "institution",
@@ -373,6 +377,7 @@ export const authors: Array<{
   },
   {
     slug: "meera-joshi",
+    user: "admin.li",
     name: "Meera Joshi",
     org: "sample-life-insurer",
     contributorType: "institution",
@@ -387,6 +392,7 @@ export const authors: Array<{
   },
   {
     slug: "abcfinance-desk",
+    user: "writer.abc",
     name: "abcfinance desk",
     org: "abcfinance",
     contributorType: "staff",

@@ -1,5 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { parse } from "node-html-parser";
+import { eq } from "drizzle-orm";
+import { db, schema } from "@/server/db/client";
 import { pageText, siteOrigin, type HttpClient } from "../http-client";
 import { signInFully } from "./auth-helpers";
 import {
@@ -20,6 +22,15 @@ function paperRules(html: string): Record<string, string> {
       el.getAttribute("data-paper-rule")!,
     ]),
   );
+}
+
+/** Papers ticked on the release form when it opens. */
+function tickedPapers(html: string): string[] {
+  const form = parse(html).querySelector('form[data-form="release"]');
+  return (form?.querySelectorAll('input[name="tenantIds"]') ?? [])
+    .filter((i) => i.hasAttribute("checked"))
+    .map((i) => i.closest("[data-paper]")!.getAttribute("data-paper")!)
+    .sort();
 }
 
 describe("release and the publisher queue through the real pages", () => {
@@ -43,14 +54,13 @@ describe("release and the publisher queue through the real pages", () => {
     expect(res.status).toBe(200);
     expect(res.text).toContain('data-form="release"');
     expect(Object.keys(paperRules(res.text)).sort()).toEqual(["paperb", "paperc", "tarunbharat"]);
-    // The author's papers are ticked.
-    const form = parse(res.text).querySelector('form[data-form="release"]')!;
-    const ticked = form
-      .querySelectorAll('input[name="tenantIds"]')
-      .filter((i) => i.hasAttribute("checked"))
-      .map((i) => i.closest("[data-paper]")!.getAttribute("data-paper"));
-    expect(ticked.sort()).toEqual(["paperb", "tarunbharat"]);
+    // The papers on the institution's plan are ticked (D43); this test institution has none.
+    expect(tickedPapers(res.text)).toEqual([]);
     expect(pageText(res.text)).toContain("Send to selected papers");
+    const amc = await readyToRelease({
+      institution: { orgSlug: "sample-amc", authorSlug: "anita-kulkarni" },
+    });
+    expect(tickedPapers((await editor.get(amc.url)).text)).toEqual(["paperb", "tarunbharat"]);
   });
 
   it("[E2E-UI-15] release form explains each paper's rule", async () => {
@@ -167,5 +177,33 @@ describe("release and the publisher queue through the real pages", () => {
     expect(queue.text).toContain('data-form="run-due"');
     expect(queue.text).not.toContain('data-form="approve-copy"');
     expect(queue.text).toContain("data-read-only");
+  });
+
+  it("needs a real web address from the editor before release (D44)", async () => {
+    const marathi = await readyToRelease();
+    await db()
+      .update(schema.articles)
+      .set({ slug: `draft-${marathi.slug.slice(-6)}` })
+      .where(eq(schema.articles.id, marathi.articleId));
+    let page = await editor.get(marathi.url);
+    expect(page.text).toContain("data-needs-slug");
+    expect(page.text).not.toContain('data-form="release"');
+    const v = (
+      await db()
+        .select()
+        .from(schema.articleVersions)
+        .where(eq(schema.articleVersions.articleId, marathi.articleId))
+    )[0]!;
+    const res = await editor.submitForm(marathi.url, "save", {
+      headline: v.headline,
+      summary: v.summary,
+      body: v.body,
+      slug: marathi.slug,
+    });
+    expect(res.status).toBe(303);
+    page = await editor.get(marathi.url);
+    expect(page.text).not.toContain("data-needs-slug");
+    expect(page.text).toContain('data-form="release"');
+    expect((await releaseTo(editor, marathi.url, ["tarunbharat"])).status).toBe(303);
   });
 });

@@ -348,3 +348,29 @@ fenced three ways:
 - every sign-in through it is audited with `devBypass: true`.
 
 The flag is documented in `.env.example` and off by default. Real codes keep working alongside it.
+
+## D42. The writer is the author (2026-10-10, user decision; replaces D24)
+
+The new-article form no longer asks for an author. A person files as themselves: their byline is
+their own author profile, linked to their account (`authors.userId`) and created from their name
+and organisation on their first article. The seed links the existing profiles to the demo writers
+(`writer.amc` is Anita Kulkarni, `writer.gi` Rahul Deshmukh, `admin.li` Meera Joshi, `writer.abc`
+the abcfinance desk), so demo bylines don't change. Independent experts can't sign in, so
+abcfinance staff keep a "Written by" choice: themselves (an abcfinance article) or an expert they
+file for (an independent-expert article). Someone who writes for two institutions also chooses.
+
+## D43. The editor chooses the newspapers at release (2026-10-10, user decision)
+
+Writers no longer pick newspapers. The release form pre-ticks the papers on the institution's
+active plan (none for abcfinance's own and experts' articles), and the editor changes the ticks as
+needed. `article_targets` is now written only at release. Doc 08's E2E-UI-02 ("new-article form
+loads with sections and papers") is checked as: the form loads with sections, and has no paper,
+author or web-address fields.
+
+## D44. The editor sets the web address (2026-10-10, user decision; amends D23)
+
+Writers never see the web address. It is generated when the article is created: readable from an
+English headline, or a placeholder `draft-xxxxxx` (a Marathi headline, or one that would look like
+a placeholder). Only abcfinance's editors change it, in Editing, and release is refused while it
+is still a placeholder. The `draft-` prefix can't be saved by hand. Once released it is fixed, as
+before.

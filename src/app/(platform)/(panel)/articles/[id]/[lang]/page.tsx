@@ -21,7 +21,8 @@ import { requireArea } from "@/server/auth/current";
 import { getForUser } from "@/server/articles/queries";
 import { releasePreview, type ReleasePreview } from "@/server/publishing/release";
 import { copiesFor } from "@/server/publishing/queue";
-import { isBeforeRelease, STATE_LABELS, type VersionState } from "@/domain/workflow";
+import { canSetSlug, STATE_LABELS, type VersionState } from "@/domain/workflow";
+import { isPlaceholderSlug } from "@/domain/slug";
 import { COPY_STATUS_LABELS, EXPLICIT_REASON_LABELS, copyStatus } from "@/domain/publishing";
 import { saveArticleAction } from "@/app/(platform)/_actions/articles";
 
@@ -86,7 +87,8 @@ export default async function ArticlePage({
   const data = await getForUser(s, id, lang);
   // Not visible and not existing look the same (D25).
   if (!data) notFound();
-  const { article, version, masters, targets, history, actions } = data;
+  const { article, version, masters, history, actions } = data;
+  const placeholderSlug = isPlaceholderSlug(article.slug);
   const [preview, allCopies] = await Promise.all([
     releasePreview(s, version.id),
     copiesFor(article.id),
@@ -179,11 +181,21 @@ export default async function ArticlePage({
               />
             ) : null}
             {actions.includes("release") && preview ? (
-              <ReleaseForm
-                ids={ids}
-                papers={releasePapers(preview)}
-                label="Send to selected papers"
-              />
+              placeholderSlug ? (
+                // D44: no article goes to the papers with a placeholder web address.
+                <p
+                  className="rounded-lg bg-warning/10 px-3 py-2.5 text-sm text-pretty"
+                  data-needs-slug
+                >
+                  Set a web address in the editor and save, then send it to the newspapers.
+                </p>
+              ) : (
+                <ReleaseForm
+                  ids={ids}
+                  papers={releasePapers(preview)}
+                  label="Send to selected papers"
+                />
+              )
             ) : null}
             {actions.includes("return") ? (
               <ReturnForm
@@ -231,7 +243,10 @@ export default async function ArticlePage({
                 body: version.body,
                 slug: article.slug,
               }}
-              slugEditable={isBeforeRelease(masters.map((m) => m.state))}
+              slugEditable={canSetSlug(
+                s.memberships,
+                masters.map((m) => m.state),
+              )}
               articleType={article.type}
               submitLabel="Save"
             />
@@ -298,11 +313,9 @@ export default async function ArticlePage({
                   })}
                 </ul>
               ) : (
-                <ul className="grid gap-1 text-sm">
-                  {targets.map((t) => (
-                    <li key={t.id}>{localized(t.name)}</li>
-                  ))}
-                </ul>
+                <p className="text-sm text-pretty text-muted-foreground" data-papers-later>
+                  abcfinance&apos;s editor chooses the newspapers when releasing it.
+                </p>
               )}
             </CardContent>
           </Card>

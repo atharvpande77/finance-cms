@@ -307,7 +307,7 @@ describe("release, the papers' decisions and deemed approval", () => {
     const [writer, approver, compliance] = (await Promise.all(
       ["writer.amc", "approver.amc", "compliance.amc"].map(signInFully),
     )) as [HttpClient, HttpClient, HttpClient];
-    const article = await createArticle(writer, { author: "anita-kulkarni" });
+    const article = await createArticle(writer);
     expect((await step(writer, article.url, "submit")).status).toBe(303);
     expect((await step(approver, article.url, "approve")).status).toBe(303);
     expect((await step(compliance, article.url, "approve")).status).toBe(303);

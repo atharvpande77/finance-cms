@@ -10,12 +10,6 @@ import { createArticleAction } from "@/app/(platform)/_actions/articles";
 
 export const metadata: Metadata = { title: "New article" };
 
-const AUTHOR_KIND = {
-  institution: "",
-  staff: " (abcfinance)",
-  independent: " (independent expert)",
-};
-
 export default async function NewArticlePage() {
   const s = await requireArea("articles");
   if (!canCreate(s.memberships)) forbidden();
@@ -24,23 +18,18 @@ export default async function NewArticlePage() {
     <>
       <PageHeader
         title="New article"
-        description="Write in English or Marathi. You can add the other language later."
+        description="Write in English or Marathi. You can add the other language later. abcfinance's editor chooses the newspapers and the web address."
       />
       <ArticleEditor
         action={createArticleAction}
         formName="create"
         hidden={{}}
         initial={{ headline: "", summary: "", body: "", slug: "" }}
-        slugEditable
+        slugEditable={false}
         submitLabel="Save draft"
         createOptions={{
           sections: options.sections.map((x) => ({ id: x.id, label: localized(x.name) })),
-          authors: options.authors.map((a) => ({
-            id: a.id,
-            label: `${a.name}${AUTHOR_KIND[a.contributorType]}`,
-            contributorType: a.contributorType,
-          })),
-          tenants: options.tenants.map((t) => ({ id: t.id, label: localized(t.name) })),
+          writtenAs: options.writtenAs,
         }}
       />
     </>

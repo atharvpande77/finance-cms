@@ -23,3 +23,21 @@ export function suggestSlug(headline: string): string {
   if (slug.length <= 80) return slug;
   return slug.slice(0, 80).replace(/-[^-]*$/, "");
 }
+
+/**
+ * A slug the system chose for a headline it couldn't turn into one (e.g. Marathi). abcfinance's
+ * editor replaces it before release, and nobody may save one by hand (D44).
+ */
+export const PLACEHOLDER_PREFIX = "draft-";
+
+export function isPlaceholderSlug(slug: string): boolean {
+  return slug.startsWith(PLACEHOLDER_PREFIX);
+}
+
+/** The web address an article starts with: from an English headline, else a placeholder. */
+export function initialSlug(headline: string, random: string): string {
+  const suggested = suggestSlug(headline);
+  return isSlug(suggested) && !isPlaceholderSlug(suggested)
+    ? suggested
+    : `${PLACEHOLDER_PREFIX}${random}`;
+}

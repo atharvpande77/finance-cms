@@ -156,9 +156,44 @@ export function canAddLanguage(ms: readonly Membership[], article: ArticleRef): 
   return isAuthorSide(ms, article);
 }
 
-/** Before the first release the slug and target papers may still change (D23). */
+/** Before the first release the slug may still change (D23, D44). */
 export function isBeforeRelease(masterStates: readonly VersionState[]): boolean {
   return masterStates.every((s) =>
     ["draft", "in_approval", "compliance_review", "editing"].includes(s),
   );
+}
+
+/** Only abcfinance's editors set the web address, and only before the first release (D44). */
+export function canSetSlug(
+  ms: readonly Membership[],
+  masterStates: readonly VersionState[],
+): boolean {
+  return holdsAbc(ms, ABC_EDITOR_ROLES) && isBeforeRelease(masterStates);
+}
+
+/**
+ * What a person may file a new article as (D42): themselves for each institution they write for,
+ * and, for abcfinance staff, themselves (an abcfinance article) or an independent expert.
+ */
+export type AuthorChoice =
+  | { kind: "self"; type: "institution"; organisationId: string }
+  | { kind: "self"; type: "abcfinance" }
+  | { kind: "expert" };
+
+export function authorChoices(ms: readonly Membership[]): AuthorChoice[] {
+  const orgs = [
+    ...new Set(
+      ms
+        .filter((m) => m.organisationType === "institution" && INSTITUTION_AUTHORS.includes(m.role))
+        .map((m) => m.organisationId),
+    ),
+  ];
+  const choices: AuthorChoice[] = orgs.map((organisationId) => ({
+    kind: "self",
+    type: "institution",
+    organisationId,
+  }));
+  if (holdsAbc(ms, ABC_AUTHORS))
+    choices.push({ kind: "self", type: "abcfinance" }, { kind: "expert" });
+  return choices;
 }

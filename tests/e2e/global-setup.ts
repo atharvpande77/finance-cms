@@ -23,6 +23,8 @@ export default async function setup() {
     WIDGET_CACHE_SECONDS: "0",
     TRUST_PROXY: "1",
     SMTP_URL: "",
+    // A production build: the local dev-only two-step code must stay off (D41).
+    DEV_TOTP_BYPASS: "",
   };
   if (process.env.E2E_SKIP_BUILD !== "1") {
     execFileSync("npx", ["next", "build"], { env, stdio: "inherit" });

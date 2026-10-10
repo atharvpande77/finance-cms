@@ -3,19 +3,21 @@ import { z } from "zod";
 import { db, schema, type Tx } from "@/server/db/client";
 import { audit } from "@/server/audit";
 import type { SessionInfo } from "@/server/auth/sessions";
-import { authorAllowed } from "./queries";
-import { isSlug } from "@/domain/slug";
+import { ensureOwnProfile } from "./authors";
+import { randomInt } from "node:crypto";
+import { initialSlug, isPlaceholderSlug, isSlug } from "@/domain/slug";
 import { addMonthsToDay, indianDate } from "@/domain/time";
 import {
+  authorChoices,
   can,
   canAddLanguage,
+  canSetSlug,
   canCreate,
   canView,
   isBeforeRelease,
   nextState,
   returnCommentOk,
   validateSubmit,
-  type ArticleType,
   type VersionState,
 } from "@/domain/workflow";
 
@@ -78,14 +80,54 @@ async function event(
 const createInput = z.object({
   sectionId: z.string().uuid({ message: "Choose a section." }),
   language,
-  authorId: z.string().uuid({ message: "Choose an author." }),
-  tenantIds: z.array(z.string().uuid()).min(1, { message: "Choose at least one newspaper." }),
+  /** "self:<organisationId>", "self:abcfinance" or "expert:<authorId>"; blank with one choice. */
+  writtenAs: z.string().trim().default(""),
   headline: z.string().trim().max(200),
-  slug: z.string().trim().toLowerCase(),
   summary: z.string().trim().max(400),
   body: z.string().max(50_000),
 });
 export type CreateInput = z.input<typeof createInput>;
+
+type Byline =
+  | { type: "institution"; organisationId: string }
+  | { type: "abcfinance" }
+  | { type: "independent"; authorId: string };
+
+/** What the new article is filed as, checked against what this person may file as (D42). */
+async function resolveByline(actor: Actor, writtenAs: string): Promise<Byline | null> {
+  const choices = authorChoices(actor.memberships);
+  let pick = writtenAs;
+  if (!pick && choices.length === 1) {
+    const only = choices[0]!;
+    pick = only.kind === "self" && only.type === "institution" ? `self:${only.organisationId}` : "";
+  }
+  const [kind, id] = pick.split(":") as [string, string | undefined];
+  if (kind === "self" && id === "abcfinance") {
+    return choices.some((c) => c.kind === "self" && c.type === "abcfinance")
+      ? { type: "abcfinance" }
+      : null;
+  }
+  if (kind === "self" && id) {
+    return choices.some(
+      (c) => c.kind === "self" && c.type === "institution" && c.organisationId === id,
+    )
+      ? { type: "institution", organisationId: id }
+      : null;
+  }
+  if (kind === "expert" && id && choices.some((c) => c.kind === "expert")) {
+    const [expert] = await db()
+      .select({ id: schema.authors.id, contributorType: schema.authors.contributorType })
+      .from(schema.authors)
+      .where(eq(schema.authors.id, id));
+    return expert?.contributorType === "independent"
+      ? { type: "independent", authorId: expert.id }
+      : null;
+  }
+  return null;
+}
+
+const randomPart = () =>
+  Array.from({ length: 6 }, () => "abcdefghijklmnopqrstuvwxyz0123456789"[randomInt(36)]).join("");
 
 export async function createArticle(
   actor: Actor,
@@ -97,68 +139,69 @@ export async function createArticle(
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]!.message };
   const input = parsed.data;
   if (!input.headline) return { ok: false, error: "Write a headline." };
-  if (!isSlug(input.slug)) return { ok: false, error: SLUG_RULE };
-
-  const [author] = await db()
-    .select()
-    .from(schema.authors)
-    .where(eq(schema.authors.id, input.authorId));
-  if (!author || !authorAllowed(actor, author)) return { ok: false, error: "Choose an author." };
-  let type: ArticleType;
-  let organisationId: string;
-  if (author.contributorType === "institution") {
-    type = "institution";
-    organisationId = author.organisationId!;
-  } else {
-    type = author.contributorType === "staff" ? "abcfinance" : "independent";
-    const [abc] = await db()
-      .select({ id: schema.organisations.id })
-      .from(schema.organisations)
-      .where(eq(schema.organisations.type, "abcfinance"));
-    organisationId = abc!.id;
-  }
+  const byline = await resolveByline(actor, input.writtenAs);
+  if (!byline) return { ok: false, error: "Choose who it's written by." };
+  const [abc] = await db()
+    .select({ id: schema.organisations.id })
+    .from(schema.organisations)
+    .where(eq(schema.organisations.type, "abcfinance"));
+  const organisationId = byline.type === "institution" ? byline.organisationId : abc!.id;
 
   const now = new Date();
-  try {
-    const articleId = await db().transaction(async (tx) => {
-      const [article] = await tx
-        .insert(schema.articles)
-        .values({
-          slug: input.slug,
-          type,
-          masterLanguage: input.language,
-          organisationId,
-          authorId: author.id,
-          sectionId: input.sectionId,
-          // Reviewed 6 months after creation by default (04.3).
-          reviewBy: addMonthsToDay(indianDate(now), 6),
-          createdById: actor.user.id,
-        })
-        .returning({ id: schema.articles.id });
-      await tx
-        .insert(schema.articleTargets)
-        .values(
-          [...new Set(input.tenantIds)].map((tenantId) => ({ articleId: article!.id, tenantId })),
-        );
-      const [version] = await tx
-        .insert(schema.articleVersions)
-        .values({
-          articleId: article!.id,
-          language: input.language,
-          headline: input.headline,
-          summary: input.summary,
-          body: input.body,
-          state: "draft",
-        })
-        .returning({ id: schema.articleVersions.id });
-      await event(tx, actor, version!.id, "create", null, "draft", null, ip, { type });
-      return article!.id;
-    });
-    return { ok: true, articleId, language: input.language };
-  } catch (err) {
-    if (isUniqueViolation(err, "articles_slug_unique")) return { ok: false, error: SLUG_TAKEN };
-    throw err;
+  // The web address is the editor's to set (D44): a readable one from an English headline, else
+  // a placeholder. A clash with another article's gets a short suffix.
+  const first = initialSlug(input.headline, randomPart());
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const slug = attempt === 0 ? first : `${first.slice(0, 73).replace(/-+$/, "")}-${randomPart()}`;
+    try {
+      const articleId = await db().transaction(async (tx) => {
+        const authorId =
+          byline.type === "independent"
+            ? byline.authorId
+            : (
+                await ensureOwnProfile(
+                  tx,
+                  actor.user,
+                  organisationId,
+                  byline.type === "institution" ? "institution" : "staff",
+                )
+              ).id;
+        const [article] = await tx
+          .insert(schema.articles)
+          .values({
+            slug,
+            type: byline.type,
+            masterLanguage: input.language,
+            organisationId,
+            authorId,
+            sectionId: input.sectionId,
+            // Reviewed 6 months after creation by default (04.3).
+            reviewBy: addMonthsToDay(indianDate(now), 6),
+            createdById: actor.user.id,
+          })
+          .returning({ id: schema.articles.id });
+        const [version] = await tx
+          .insert(schema.articleVersions)
+          .values({
+            articleId: article!.id,
+            language: input.language,
+            headline: input.headline,
+            summary: input.summary,
+            body: input.body,
+            state: "draft",
+          })
+          .returning({ id: schema.articleVersions.id });
+        await event(tx, actor, version!.id, "create", null, "draft", null, ip, {
+          type: byline.type,
+        });
+        return article!.id;
+      });
+      return { ok: true, articleId, language: input.language };
+    } catch (err) {
+      if (!isUniqueViolation(err, "articles_slug_unique")) throw err;
+    }
   }
+  return { ok: false, error: "Couldn't create the article. Try again." };
 }
 
 async function loadVersion(versionId: string) {
@@ -197,7 +240,7 @@ export async function saveVersion(
   const input = parsed.data;
   if (!input.headline) return { ok: false, error: "Write a headline." };
 
-  // The web address may change only before the first release (D23).
+  // Only abcfinance's editors set the web address, and only before the first release (D44).
   const v = schema.articleVersions;
   let newSlug: string | null = null;
   if (input.slug !== undefined) {
@@ -210,8 +253,15 @@ export async function saveVersion(
         .select({ state: v.state })
         .from(v)
         .where(and(eq(v.articleId, row.version.articleId), isNull(v.tenantId)));
-      if (!isBeforeRelease(states.map((s) => s.state))) {
+      const masterStates = states.map((s) => s.state);
+      if (!isBeforeRelease(masterStates)) {
         return { ok: false, error: "The web address can't change after the article is released." };
+      }
+      if (!canSetSlug(actor.memberships, masterStates)) {
+        return { ok: false, error: "Only abcfinance's editors set the web address." };
+      }
+      if (isPlaceholderSlug(input.slug)) {
+        return { ok: false, error: "Choose a web address that doesn't start with draft-." };
       }
       if (!isSlug(input.slug)) return { ok: false, error: SLUG_RULE };
       newSlug = input.slug;

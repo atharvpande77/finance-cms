@@ -16,18 +16,11 @@ import { FormError } from "./FormError";
 import { SubmitButton } from "./SubmitButton";
 
 type Option = { id: string; label: string };
-type AuthorOption = Option & { contributorType: "staff" | "institution" | "independent" };
 
 export type CreateOptions = {
   sections: Option[];
-  authors: AuthorOption[];
-  tenants: Option[];
-};
-
-const TYPE_FOR: Record<AuthorOption["contributorType"], ArticleKind> = {
-  institution: "institution",
-  staff: "abcfinance",
-  independent: "independent",
+  /** What the person may file as (D42); a "Written by" field only when there is a choice. */
+  writtenAs: { value: string; label: string; type: ArticleKind }[];
 };
 
 /**
@@ -59,18 +52,16 @@ export function ArticleEditor({
   const [slug, setSlug] = useState(start.slug);
   const [slugTouched, setSlugTouched] = useState(Boolean(start.slug));
   const [body, setBody] = useState(start.body);
-  const [authorId, setAuthorId] = useState(
-    state.values?.authorId ?? createOptions?.authors[0]?.id ?? "",
+  const [writtenAs, setWrittenAs] = useState(
+    state.values?.writtenAs ?? createOptions?.writtenAs[0]?.value ?? "",
   );
   const [tab, setTab] = useState<"write" | "preview">("write");
 
   const type: ArticleKind =
     articleType ??
-    TYPE_FOR[
-      createOptions?.authors.find((a) => a.id === authorId)?.contributorType ?? "institution"
-    ];
+    createOptions?.writtenAs.find((w) => w.value === writtenAs)?.type ??
+    "institution";
   const checks = useMemo(() => runChecks({ headline, body }), [headline, body]);
-  const ticked = state.values?.tenantIds?.split(",");
 
   return (
     <form action={formAction} data-form={formName} className="grid gap-6">
@@ -96,22 +87,26 @@ export function ArticleEditor({
               ))}
             </NativeSelect>
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="authorId">Author</Label>
-            <NativeSelect
-              id="authorId"
-              name="authorId"
-              value={authorId}
-              onChange={(e) => setAuthorId(e.target.value)}
-              required
-            >
-              {createOptions.authors.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.label}
-                </option>
-              ))}
-            </NativeSelect>
-          </div>
+          {createOptions.writtenAs.length > 1 ? (
+            <div className="grid gap-2">
+              <Label htmlFor="writtenAs">Written by</Label>
+              <NativeSelect
+                id="writtenAs"
+                name="writtenAs"
+                value={writtenAs}
+                onChange={(e) => setWrittenAs(e.target.value)}
+                required
+              >
+                {createOptions.writtenAs.map((w) => (
+                  <option key={w.value} value={w.value}>
+                    {w.label}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
+          ) : (
+            <input type="hidden" name="writtenAs" value={writtenAs} />
+          )}
           <fieldset className="grid gap-2">
             <legend className="mb-2 text-sm font-medium">Language</legend>
             <div className="flex gap-4">
@@ -132,27 +127,10 @@ export function ArticleEditor({
               ))}
             </div>
           </fieldset>
-          <fieldset className="grid gap-2" data-papers>
-            <legend className="mb-2 text-sm font-medium">Newspapers</legend>
-            <div className="flex flex-wrap gap-x-4">
-              {createOptions.tenants.map((t) => (
-                <label key={t.id} className="flex h-10 items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    name="tenantIds"
-                    value={t.id}
-                    defaultChecked={ticked ? ticked.includes(t.id) : true}
-                    className="size-4 accent-primary"
-                  />
-                  {t.label}
-                </label>
-              ))}
-            </div>
-          </fieldset>
         </div>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-[1fr_16rem]">
+      <div className={cn("grid gap-4", slugEditable && "sm:grid-cols-[1fr_16rem]")}>
         <div className="grid gap-2">
           <Label htmlFor="headline">Headline</Label>
           <Input
@@ -167,9 +145,10 @@ export function ArticleEditor({
             }}
           />
         </div>
-        <div className="grid gap-2">
-          <Label htmlFor="slug">Web address</Label>
-          {slugEditable ? (
+        {/* Only abcfinance's editors set the web address, before release (D44). */}
+        {slugEditable ? (
+          <div className="grid gap-2">
+            <Label htmlFor="slug">Web address</Label>
             <Input
               id="slug"
               name="slug"
@@ -185,12 +164,8 @@ export function ArticleEditor({
                 setSlugTouched(true);
               }}
             />
-          ) : (
-            <p className="flex h-10 items-center truncate font-mono text-sm text-muted-foreground">
-              /{slug}
-            </p>
-          )}
-        </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="grid gap-2">

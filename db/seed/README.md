@@ -86,6 +86,13 @@ master ("With publisher") and one waiting copy per paper. The text is invented.
 The deadlines are counted from seed time, so `corepack pnpm db:reset` re-arms them. Paper B's
 copy carries a release note for its editor.
 
+## Bylines (D42)
+
+Writers are the authors of their articles. These seeded profiles are the demo writers' own:
+`anita-kulkarni` → `writer.amc`, `rahul-deshmukh` → `writer.gi`, `meera-joshi` → `admin.li`,
+`abcfinance-desk` → `writer.abc`. Anyone else gets a profile from their name on their first
+article. Suresh Patil is an independent expert, filed for by abcfinance staff.
+
 ## Calculators (M4a)
 
 | Calculator                            | Sponsor (from the sponsorships above)             |

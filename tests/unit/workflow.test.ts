@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   allowedActions,
+  authorChoices,
+  canSetSlug,
   canAddLanguage,
   canCreate,
   canView,
@@ -142,5 +144,33 @@ describe("visibility and turns", () => {
     expect(canCreate(abcWriter)).toBe(true);
     expect(canCreate(approver)).toBe(false);
     expect(canCreate([m("publisher_editor", TB)])).toBe(false);
+  });
+});
+
+describe("who writes and who sets the web address (D42, D44)", () => {
+  it("files institution writers as themselves for their institution", () => {
+    expect(authorChoices(writer)).toEqual([
+      { kind: "self", type: "institution", organisationId: AMC },
+    ]);
+    expect(authorChoices(admin)).toEqual([
+      { kind: "self", type: "institution", organisationId: AMC },
+    ]);
+    expect(authorChoices([...writer, m("institution_writer", GI)])).toHaveLength(2);
+    expect(authorChoices(approver)).toEqual([]);
+    expect(authorChoices([m("publisher_editor", TB)])).toEqual([]);
+  });
+
+  it("lets abcfinance staff file as themselves or for an expert", () => {
+    for (const ms of [abcWriter, editor]) {
+      expect(authorChoices(ms)).toEqual([{ kind: "self", type: "abcfinance" }, { kind: "expert" }]);
+    }
+  });
+
+  it("lets only abcfinance's editors set the web address, before release", () => {
+    expect(canSetSlug(editor, ["editing"])).toBe(true);
+    expect(canSetSlug(editor, ["draft", "editing"])).toBe(true);
+    expect(canSetSlug(editor, ["with_publisher"])).toBe(false);
+    expect(canSetSlug(abcWriter, ["editing"])).toBe(false);
+    expect(canSetSlug(writer, ["draft"])).toBe(false);
   });
 });

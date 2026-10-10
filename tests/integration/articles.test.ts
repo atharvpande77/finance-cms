@@ -23,30 +23,19 @@ async function ids() {
     .select()
     .from(schema.sections)
     .where(eq(schema.sections.slug, "mutual-funds"));
-  const tenants = await db().select().from(schema.tenants);
   const authors = await db().select().from(schema.authors);
   return {
     sectionId: section!.id,
-    tenantIds: tenants.map((t) => t.id),
     author: (slug: string) => authors.find((a) => a.slug === slug)!.id,
   };
 }
 
-async function newAmcArticle() {
+async function newAmcArticle(headline = `Debt funds for steady savers ${unique()}`) {
   const writer = await actor("writer.amc");
-  const { sectionId, tenantIds, author } = await ids();
+  const { sectionId } = await ids();
   const created = await createArticle(
     writer,
-    {
-      sectionId,
-      language: "en",
-      authorId: author("anita-kulkarni"),
-      tenantIds,
-      headline: "Debt funds for steady savers",
-      slug: `debt-funds-${unique()}`,
-      summary: "What debt funds are for.",
-      body: BODY,
-    },
+    { sectionId, language: "en", headline, summary: "What debt funds are for.", body: BODY },
     IP,
   );
   if (!created.ok) throw new Error(created.error);
@@ -54,7 +43,11 @@ async function newAmcArticle() {
     .select()
     .from(schema.articleVersions)
     .where(eq(schema.articleVersions.articleId, created.articleId));
-  return { writer, articleId: created.articleId, version: version! };
+  const [article] = await db()
+    .select()
+    .from(schema.articles)
+    .where(eq(schema.articles.id, created.articleId));
+  return { writer, articleId: created.articleId, version: version!, article: article! };
 }
 
 async function rev(versionId: string) {
@@ -66,21 +59,18 @@ async function rev(versionId: string) {
 }
 
 describe("creating articles", () => {
-  it("starts a draft with targets, a create event and a 6-month review date", async () => {
-    const { articleId, version } = await newAmcArticle();
+  it("starts a draft with a create event and a 6-month review date, and no papers yet", async () => {
+    const { articleId, version, article } = await newAmcArticle();
     expect(version.state).toBe("draft");
     expect(version.tenantId).toBeNull();
-    const [article] = await db()
-      .select()
-      .from(schema.articles)
-      .where(eq(schema.articles.id, articleId));
-    expect(article!.type).toBe("institution");
-    expect(article!.reviewBy).toBe(addMonthsToDay(indianDate(article!.createdAt), 6));
+    expect(article.type).toBe("institution");
+    expect(article.reviewBy).toBe(addMonthsToDay(indianDate(article.createdAt), 6));
+    // The editor chooses the papers at release (D43).
     const targets = await db()
       .select()
       .from(schema.articleTargets)
       .where(eq(schema.articleTargets.articleId, articleId));
-    expect(targets).toHaveLength(3);
+    expect(targets).toHaveLength(0);
     const events = await db()
       .select()
       .from(schema.workflowEvents)
@@ -90,63 +80,106 @@ describe("creating articles", () => {
     ]);
   });
 
-  it("refuses another institution's author profile and a taken slug", async () => {
-    const writer = await actor("writer.amc");
-    const { sectionId, tenantIds, author } = await ids();
-    const base = {
-      sectionId,
-      language: "en" as const,
-      tenantIds,
-      headline: "A headline",
-      summary: "",
-      body: BODY,
-    };
-    const other = await createArticle(
-      writer,
-      { ...base, authorId: author("rahul-deshmukh"), slug: `x-${unique()}` },
-      IP,
-    );
-    expect(other).toMatchObject({ ok: false, error: "Choose an author." });
-    const taken = await createArticle(
-      writer,
-      { ...base, authorId: author("anita-kulkarni"), slug: "sip-basics" },
-      IP,
-    );
-    expect(taken).toMatchObject({ ok: false });
-    expect(!taken.ok && taken.error).toContain("already uses this web address");
-  });
-
-  it("makes abcfinance staff articles abcfinance or independent by author", async () => {
-    const editor = await actor("editor.abc");
-    const { sectionId, tenantIds, author } = await ids();
-    const make = async (slug: string) =>
+  it("bylines the writer's own profile: the seeded one, or a new one reused afterwards", async () => {
+    const { author } = await ids();
+    const { article } = await newAmcArticle();
+    expect(article.authorId).toBe(author("anita-kulkarni"));
+    const admin = await actor("admin.amc");
+    const { sectionId } = await ids();
+    const make = () =>
       createArticle(
-        editor,
-        {
-          sectionId,
-          language: "mr",
-          authorId: author(slug),
-          tenantIds,
-          headline: "शीर्षक",
-          slug: `a-${unique()}`,
-          summary: "",
-          body: BODY,
-        },
+        admin,
+        { sectionId, language: "en", headline: `Tax saving ${unique()}`, summary: "", body: BODY },
         IP,
       );
-    const staff = await make("abcfinance-desk");
-    const expert = await make("suresh-patil");
+    const first = await make();
+    const second = await make();
+    if (!first.ok || !second.ok) throw new Error("create failed");
+    const rows = await db()
+      .select({ authorId: schema.articles.authorId })
+      .from(schema.articles)
+      .where(inArray(schema.articles.id, [first.articleId, second.articleId]));
+    expect(new Set(rows.map((r) => r.authorId)).size).toBe(1);
+    const [profile] = await db()
+      .select()
+      .from(schema.authors)
+      .where(eq(schema.authors.id, rows[0]!.authorId!));
+    expect(profile).toMatchObject({
+      name: "Aditya Admin (AMC)",
+      contributorType: "institution",
+      userId: admin.user.id,
+    });
+  });
+
+  it("generates the web address: readable from English, a placeholder otherwise, unique", async () => {
+    const headline = `Index funds explained ${unique()}`;
+    const one = await newAmcArticle(headline);
+    const two = await newAmcArticle(headline);
+    expect(one.article.slug).toBe(headline.toLowerCase().replace(/\s+/g, "-"));
+    expect(two.article.slug).toMatch(new RegExp(`^${one.article.slug}-[a-z0-9]{6}$`));
+    const marathi = await newAmcArticle("इंडेक्स फंड म्हणजे काय?");
+    expect(marathi.article.slug).toMatch(/^draft-[a-z0-9]{6}$/);
+  });
+
+  it("refuses an expert byline for an institution writer", async () => {
+    const writer = await actor("writer.amc");
+    const { sectionId, author } = await ids();
+    const res = await createArticle(
+      writer,
+      {
+        sectionId,
+        language: "en",
+        writtenAs: `expert:${author("suresh-patil")}`,
+        headline: "A headline",
+        summary: "",
+        body: BODY,
+      },
+      IP,
+    );
+    expect(res).toMatchObject({ ok: false, error: "Choose who it's written by." });
+  });
+
+  it("makes abcfinance staff articles abcfinance or independent by 'Written by'", async () => {
+    const editor = await actor("editor.abc");
+    const { sectionId, author } = await ids();
+    const make = async (writtenAs: string) =>
+      createArticle(
+        editor,
+        { sectionId, language: "mr", writtenAs, headline: "शीर्षक", summary: "", body: BODY },
+        IP,
+      );
+    const staff = await make("self:abcfinance");
+    const expert = await make(`expert:${author("suresh-patil")}`);
     if (!staff.ok || !expert.ok) throw new Error("create failed");
     const rows = await db()
-      .select({ id: schema.articles.id, type: schema.articles.type })
+      .select({
+        id: schema.articles.id,
+        type: schema.articles.type,
+        authorId: schema.articles.authorId,
+      })
       .from(schema.articles)
       .where(inArray(schema.articles.id, [staff.articleId, expert.articleId]));
-    expect(new Map(rows.map((r) => [r.id, r.type]))).toEqual(
-      new Map([
-        [staff.articleId, "abcfinance"],
-        [expert.articleId, "independent"],
-      ]),
-    );
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    expect(byId.get(staff.articleId)!.type).toBe("abcfinance");
+    expect(byId.get(expert.articleId)).toMatchObject({
+      type: "independent",
+      authorId: author("suresh-patil"),
+    });
+    // Staff must say who it's written by.
+    expect(await make("")).toMatchObject({ ok: false });
+  });
+
+  it("lets only abcfinance's editors set the web address, never to a placeholder", async () => {
+    const { version, article } = await newAmcArticle();
+    const writer = await actor("writer.amc");
+    const text = { headline: version.headline, summary: "", body: BODY };
+    expect(
+      await saveVersion(writer, version.id, version.rev, { ...text, slug: `mine-${unique()}` }, IP),
+    ).toEqual({ ok: false, error: "Only abcfinance's editors set the web address." });
+    // Saving without changing it is fine.
+    expect(
+      await saveVersion(writer, version.id, version.rev, { ...text, slug: article.slug }, IP),
+    ).toEqual({ ok: true });
   });
 });
 

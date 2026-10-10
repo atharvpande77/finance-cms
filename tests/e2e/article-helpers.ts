@@ -27,27 +27,32 @@ export async function formIds() {
 
 export type Created = { articleId: string; url: string; slug: string };
 
-/** Fills in the new-article form and returns the article's page URL. */
+/**
+ * Fills in the new-article form and returns the article's page URL. Institution writers are the
+ * author (D42); abcfinance staff say who it's written by (`self:abcfinance` or `expert:<id>`).
+ */
 export async function createArticle(
   client: HttpClient,
-  opts: { author: string; headline?: string; language?: "en" | "mr"; section?: string },
+  opts: { writtenAs?: string; headline?: string; language?: "en" | "mr"; section?: string } = {},
 ): Promise<Created> {
   const ids = await formIds();
-  const slug = uniqueSlug("e2e");
   const res = await client.submitForm("/articles/new", "create", {
     sectionId: ids.section(opts.section ?? "mutual-funds"),
-    authorId: ids.author(opts.author),
     language: opts.language ?? "en",
-    tenantIds: [ids.tenant("paperb"), ids.tenant("tarunbharat")],
-    headline: opts.headline ?? "SIP basics for first-time investors",
-    slug,
+    ...(opts.writtenAs ? { writtenAs: opts.writtenAs } : {}),
+    // A unique headline gives a unique web address (D44).
+    headline: opts.headline ?? `SIP basics for first-time investors ${uniqueSlug("t")}`,
     summary: "How a monthly SIP works.",
     body: BODY,
   });
   expect(res.status, res.text.slice(0, 300)).toBe(303);
   const match = res.location!.match(/^\/articles\/([0-9a-f-]{36})\/(en|mr)\?done=create$/);
   expect(match, res.location!).not.toBeNull();
-  return { articleId: match![1]!, url: `/articles/${match![1]}/${match![2]}`, slug };
+  const [row] = await db()
+    .select({ slug: schema.articles.slug })
+    .from(schema.articles)
+    .where(eq(schema.articles.id, match![1]!));
+  return { articleId: match![1]!, url: `/articles/${match![1]}/${match![2]}`, slug: row!.slug };
 }
 
 /** Posts a workflow step from the article page; returns the response. */

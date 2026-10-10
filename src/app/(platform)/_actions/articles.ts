@@ -32,20 +32,17 @@ export async function createArticleAction(
   const values = {
     sectionId: text(form, "sectionId"),
     language: text(form, "language"),
-    authorId: text(form, "authorId"),
+    writtenAs: text(form, "writtenAs"),
     headline: text(form, "headline"),
-    slug: text(form, "slug"),
     summary: text(form, "summary"),
     body: text(form, "body"),
   };
-  const tenantIds = form.getAll("tenantIds").map(String);
   const result = await createArticle(
     s,
-    { ...values, language: values.language as "en" | "mr", tenantIds },
+    { ...values, language: values.language as "en" | "mr" },
     await requestIp(),
   );
-  if (!result.ok)
-    return { error: result.error, values: { ...values, tenantIds: tenantIds.join(",") } };
+  if (!result.ok) return { error: result.error, values };
   redirect(articlePath(result.articleId, result.language, "create"));
 }
 

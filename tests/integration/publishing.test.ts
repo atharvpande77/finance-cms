@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { db, schema } from "@/server/db/client";
 import { membershipsOf } from "@/server/auth/sessions";
 import { release, releasePreview } from "@/server/publishing/release";
+import { saveVersion } from "@/server/articles/service";
 import { decideCopy } from "@/server/publishing/decide";
 import { DEEMED_ACTOR, publishDue } from "@/server/publishing/deemed";
 import { copiesFor, queueFor, waitingCopies } from "@/server/publishing/queue";
@@ -232,6 +233,54 @@ describe("release", () => {
         .set({ heldSectionSlugs: [] })
         .where(eq(schema.tenants.id, pc));
     }
+  });
+});
+
+describe("what the editor decides at release (D43, D44)", () => {
+  it("refuses a placeholder web address until the editor sets one", async () => {
+    const { articleId, versionId } = await editingArticle({ language: "mr" });
+    await db()
+      .update(schema.articles)
+      .set({ slug: `draft-${unique()}` })
+      .where(eq(schema.articles.id, articleId));
+    expect(await releaseTo(versionId, ["tarunbharat"])).toEqual({
+      ok: false,
+      error: "Set the web address before sending it to the newspapers.",
+    });
+    const editor = await actor("editor.abc");
+    const v = await version(versionId);
+    const text = { headline: v.headline, summary: v.summary, body: v.body };
+    expect(
+      await saveVersion(editor, versionId, v.rev, { ...text, slug: `draft-${unique()}` }, IP),
+    ).toEqual({ ok: false, error: "Choose a web address that doesn't start with draft-." });
+    const slug = `sip-in-marathi-${unique()}`;
+    expect(await saveVersion(editor, versionId, v.rev, { ...text, slug }, IP)).toEqual({
+      ok: true,
+    });
+    expect(await releaseTo(versionId, ["tarunbharat"])).toMatchObject({ ok: true });
+    // Fixed once released.
+    const after = await version(versionId);
+    expect(
+      await saveVersion(editor, versionId, after.rev, { ...text, slug: `${slug}-2` }, IP),
+    ).toMatchObject({ ok: false });
+  });
+
+  it("pre-ticks the papers on the institution's plan, and none for abcfinance's own", async () => {
+    const editor = await actor("editor.abc");
+    const amc = await editingArticle({ org: "sample-amc", type: "institution", language: "mr" });
+    const ticked = async (versionId: string) =>
+      (await releasePreview(editor, versionId))!.papers
+        .filter((p) => p.targeted)
+        .map((p) => p.slug);
+    expect((await ticked(amc.versionId)).sort()).toEqual(["paperb", "tarunbharat"]);
+    const gi = await editingArticle({
+      org: "sample-general-insurer",
+      type: "institution",
+      language: "mr",
+    });
+    expect((await ticked(gi.versionId)).sort()).toEqual(["paperb", "paperc", "tarunbharat"]);
+    const own = await editingArticle({ language: "mr" });
+    expect(await ticked(own.versionId)).toEqual([]);
   });
 });
 

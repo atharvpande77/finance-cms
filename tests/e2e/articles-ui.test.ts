@@ -27,22 +27,32 @@ describe("article workflow through the real pages (up to Editing)", () => {
   });
 
   it("[E2E-UI-02] new-article form loads with sections and papers", async () => {
+    // D42–D44: the writer is the author; abcfinance's editor picks the papers and web address
+    // at release, so the writer's form has sections but no author, paper or address fields.
     const res = await writer.get("/articles/new");
     expect(res.status).toBe(200);
     const text = pageText(res.text);
     for (const label of ["Mutual funds", "Health insurance", "Credit cards"])
       expect(text).toContain(label);
-    // Paper C has only a Marathi name.
-    for (const paper of ["Tarun Bharat", "Paper B", "पेपर सी"]) expect(text).toContain(paper);
     expect(res.text).toContain('data-form="create"');
+    for (const field of ['name="tenantIds"', 'name="authorId"', 'name="slug"', 'id="writtenAs"']) {
+      expect(res.text, field).not.toContain(field);
+    }
+    expect(text).toContain("abcfinance's editor chooses the newspapers and the web address");
   });
 
   it("[E2E-UI-03] creating redirects to the new article", async () => {
     article = await createArticle(writer, {
-      author: "anita-kulkarni",
-      headline: "SIP basics from the AMC desk",
+      headline: `SIP basics from the AMC desk ${Date.now()}`,
     });
     expect(article.url).toMatch(/^\/articles\/[0-9a-f-]{36}\/en$/);
+  });
+
+  it("bylines the writer, and hides the web address from them (D42, D44)", async () => {
+    const res = await writer.get(article.url);
+    expect(pageText(res.text)).toContain("by Anita Kulkarni");
+    expect(res.text).not.toContain('name="slug"');
+    expect(res.text).toContain("data-papers-later");
   });
 
   it("[E2E-UI-04] draft page shows the editor and Submit button", async () => {
