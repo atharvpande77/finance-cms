@@ -117,6 +117,14 @@ export function invite(
   );
 }
 
+/** The one-time link the Users page shows the admin after adding someone (D58). */
+export function linkShown(res: HttpResponse) {
+  const url = parse(res.text).querySelector("[data-invite-link]")?.textContent.trim();
+  expect(url, "invitation link shown to the admin").toBeTruthy();
+  const parsed = new URL(url!);
+  return { url: url!, origin: parsed.origin, token: parsed.pathname.split("/").pop()! };
+}
+
 /** The forms on a page, by `data-form`. */
 export function formsOn(res: HttpResponse): string[] {
   return parse(res.text)

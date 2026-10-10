@@ -152,11 +152,12 @@ export default async function UsersPage({
       <section aria-labelledby="invite" className={`${CARD} grid gap-4 p-4 sm:p-5`}>
         <div className="grid gap-1">
           <h2 id="invite" className="font-semibold">
-            Invite someone
+            Add someone
           </h2>
           <p className="text-sm text-pretty text-muted-foreground">
-            They get an email with a link that works once, for 7 days. Someone who already has an
-            account adds these roles with their password.
+            You&apos;ll get a link to send them yourself. It works once, for 7 days: a new person
+            sets their password with it, and someone who already has an account adds these roles
+            with theirs.
           </p>
         </div>
         <InviteForm orgId={org.id} roles={ROLES_BY_KIND[org.type]} />

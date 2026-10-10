@@ -1,5 +1,6 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db, schema } from "@/server/db/client";
+import { env } from "@/server/env";
 import { audit } from "@/server/audit";
 import { queueEmail } from "@/server/mail/outbox";
 import { twoStepResetEmail } from "@/server/mail/templates";
@@ -123,6 +124,7 @@ export async function usersPage(admin: Admin, orgId?: string): Promise<UsersPage
             totpEnabled: r.totpEnabled,
             disabled: r.disabledAt !== null,
           },
+          resetLinks: env().PASSWORD_RESET,
         }),
       };
       people.set(r.id, p);

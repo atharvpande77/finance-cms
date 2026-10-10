@@ -46,6 +46,11 @@ Every role except the two writer roles needs two-step verification. The first si
 code to scan with an authenticator app. Without one, open the set-up page once, then print the
 current code with `npx tsx scripts/totp.ts approver.amc` (development databases only).
 
+**Adding people:** on **Users**, an admin adds someone and gets a one-time link to copy and
+send them. Opening it, they set their password, or someone with an account adds the roles with
+theirs. Nothing is emailed while `INVITE_EMAILS` is off, and there is no forgot-password or reset
+link while `PASSWORD_RESET` is off. Both stay off until email is set up (D58).
+
 > **WSL:** if `pnpm` on your PATH is the Windows build, call it as `corepack pnpm`.
 
 ## Scripts

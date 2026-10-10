@@ -25,6 +25,9 @@ export default async function setup() {
     SMTP_URL: "",
     // A production build: the local dev-only two-step code must stay off (D41).
     DEV_TOTP_BYPASS: "",
+    // Off unless the run asks for them (M6 turns both on; D58).
+    INVITE_EMAILS: process.env.INVITE_EMAILS ?? "",
+    PASSWORD_RESET: process.env.PASSWORD_RESET ?? "",
   };
   if (process.env.E2E_SKIP_BUILD !== "1") {
     execFileSync("npx", ["next", "build"], { env, stdio: "inherit" });

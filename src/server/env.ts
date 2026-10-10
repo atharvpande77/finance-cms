@@ -39,6 +39,16 @@ const schema = z
       .string()
       .optional()
       .transform((v) => v === "1"),
+    /** "1" also emails invitations; otherwise the admin copies the link and sends it (D58). */
+    INVITE_EMAILS: z
+      .string()
+      .optional()
+      .transform((v) => v === "1"),
+    /** "1" turns on forgot-password and admin reset links, which need email (D58; M6). */
+    PASSWORD_RESET: z
+      .string()
+      .optional()
+      .transform((v) => v === "1"),
     ADS_PREVIEW: z
       .string()
       .optional()

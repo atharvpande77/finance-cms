@@ -12,8 +12,8 @@ import { parseRoles } from "@/domain/users";
 
 export type UserActionState = {
   error?: string;
-  /** After an invitation: who it went to, and the link when there is no email service (D56). */
-  invited?: { email: string; link?: string };
+  /** After an invitation: the one-time link for the admin to send on, and whether it was emailed (D58). */
+  invited?: { email: string; link: string; emailed: boolean };
   values?: { email: string; name: string; roles: string[] };
 };
 
@@ -46,7 +46,7 @@ export async function inviteAction(
   );
   if (!result.ok) return { error: result.error, values };
   revalidatePath("/users");
-  return { invited: { email: result.email, link: result.link } };
+  return { invited: { email: result.email, link: result.link, emailed: result.emailed } };
 }
 
 export async function resendAction(
@@ -57,7 +57,7 @@ export async function resendAction(
   const result = await resend(s, text(form, "invitationId"), await requestIp());
   if (!result.ok) return { error: result.error };
   revalidatePath("/users");
-  return { invited: { email: result.email, link: result.link } };
+  return { invited: { email: result.email, link: result.link, emailed: result.emailed } };
 }
 
 export async function withdrawAction(

@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
-import { CircleCheck, Copy } from "lucide-react";
+import { useActionState, useState } from "react";
+import { Check, CircleCheck, Copy } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -23,30 +24,52 @@ import { SubmitButton } from "./SubmitButton";
 
 type Action = (prev: UserActionState, form: FormData) => Promise<UserActionState>;
 
-/** After an invitation is sent: confirmation, and the link for the sender alone without email (D56). */
+/** Copies the link, saying so for a moment; the link stays selectable if copying fails. */
+function CopyLink({ link }: { link: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="justify-self-start"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(link);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        } catch {
+          // Clipboard blocked (e.g. not a secure context): the link is still there to select.
+        }
+      }}
+    >
+      {copied ? <Check strokeWidth={1.75} /> : <Copy strokeWidth={1.75} />}
+      <span aria-live="polite">{copied ? "Copied" : "Copy link"}</span>
+    </Button>
+  );
+}
+
+/**
+ * The one-time invitation link, for the admin to send on themselves (D58). Shown once, here
+ * only: it isn't stored, so it can't be shown again (a new link can be made instead).
+ */
 function Invited({ invited }: { invited: NonNullable<UserActionState["invited"]> }) {
   return (
     <Alert variant="success" data-invited={invited.email}>
       <CircleCheck strokeWidth={1.75} />
-      <AlertDescription className="grid gap-2">
-        <span>Invitation sent to {invited.email}. It works once, for 7 days.</span>
-        {invited.link ? (
-          <span className="grid gap-1.5">
-            <span>
-              There is no email service set up, so copy this link and send it yourself. Only you can
-              see it, and only now.
-            </span>
-            <span className="flex items-center gap-2">
-              <Copy className="size-4 shrink-0" strokeWidth={1.75} aria-hidden />
-              <code
-                className="min-w-0 break-all rounded bg-background px-1.5 py-0.5 text-xs"
-                data-invite-link
-              >
-                {invited.link}
-              </code>
-            </span>
-          </span>
-        ) : null}
+      <AlertDescription className="grid gap-2.5">
+        <span className="text-pretty">
+          Send this link to <span className="font-medium">{invited.email}</span> yourself. It works
+          once, for 7 days, and lets them set their password. You won&apos;t see it again.
+          {invited.emailed ? " We've also emailed it to them." : ""}
+        </span>
+        <code
+          className="block rounded-md bg-background px-2 py-1.5 font-mono text-xs break-all text-foreground select-all"
+          data-invite-link
+        >
+          {invited.link}
+        </code>
+        <CopyLink link={invited.link} />
       </AlertDescription>
     </Alert>
   );
@@ -104,7 +127,7 @@ export function InviteForm({ orgId, roles }: { orgId: string; roles: readonly Ro
         </div>
       </div>
       <RoleChecks roles={roles} checked={state.values?.roles ?? []} />
-      <SubmitButton className="justify-self-start">Send invitation</SubmitButton>
+      <SubmitButton className="justify-self-start">Create invitation link</SubmitButton>
     </form>
   );
 }
@@ -139,7 +162,7 @@ export function InvitationButtons({
         <form action={resendFormAction} data-form={`resend-${invitationId}`}>
           <Hidden fields={{ org: orgId, invitationId }} />
           <SubmitButton variant="outline" size="sm">
-            Send again
+            New link
           </SubmitButton>
         </form>
         <form action={withdrawFormAction} data-form={`withdraw-${invitationId}`}>

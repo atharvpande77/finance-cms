@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { env } from "@/server/env";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { openReset } from "@/server/users/resets";
@@ -24,6 +26,7 @@ const DEAD = {
 } as const;
 
 export default async function ResetPage({ params }: { params: Promise<{ token: string }> }) {
+  if (!env().PASSWORD_RESET) notFound(); // No password reset before email exists (D58).
   const { token } = await params;
   const link = await openReset(token);
   if (link.state !== "ok") {

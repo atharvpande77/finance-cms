@@ -12,7 +12,9 @@ import {
   freshEmail,
   GOOD_PASSWORD,
   invite,
+  emailsTo,
   linkPath,
+  linkShown,
   orgIdOf,
   signInWith,
   throwaway,
@@ -113,23 +115,32 @@ describe("sending an invitation", () => {
     expect(row!.revokedAt).toBeNull();
   });
 
-  it("[E2E-USR-08] an email to that address carries the invitation link, from the configured site address", async () => {
-    const link = await emailedLink(email, "invitation", "invite");
-    expect(link.origin).toBe("http://localhost:3100");
-    expect(link.body).toContain("Sample AMC");
-    expect(link.body).toContain("Institution writer");
-  });
+  // Invitation emails are off until email exists (D58); M6 runs this with INVITE_EMAILS=1.
+  it.runIf(process.env.INVITE_EMAILS === "1")(
+    "[E2E-USR-08] an email to that address carries the invitation link, from the configured site address",
+    async () => {
+      const link = await emailedLink(email, "invitation", "invite");
+      expect(link.origin).toBe("http://localhost:3100");
+      expect(link.body).toContain("Sample AMC");
+      expect(link.body).toContain("Institution writer");
+    },
+  );
 
   it("[E2E-USR-09] only the link's hash is stored, never the token", async () => {
-    const { token } = await emailedLink(email, "invitation", "invite");
+    const { token } = linkShown(response);
     const [row] = await invitationsTo(email);
     expect(row!.tokenHash).toBe(sha256(token));
     expect(JSON.stringify(row)).not.toContain(token);
   });
 
   it("[E2E-USR-10] with no email service, the sender is shown the link (and only the sender)", async () => {
-    const { url, token } = await emailedLink(email, "invitation", "invite");
-    expect(parse(response.text).querySelector("[data-invite-link]")!.textContent).toBe(url);
+    // Shown to the admin to copy and send on themselves, built from the configured address.
+    const { url, token, origin } = linkShown(response);
+    expect(origin).toBe("http://localhost:3100");
+    expect(url).toMatch(/\/invite\/[A-Za-z0-9_-]{43}$/);
+    if (process.env.INVITE_EMAILS !== "1") {
+      expect(await emailsTo(email, "invitation")).toBe(0);
+    }
     // Not on the page afterwards, for the sender or any other admin.
     expect((await adminAmc.get(`/users?org=${amc}`)).text).not.toContain(token);
     expect((await superAdmin.get(`/users?org=${amc}`)).text).not.toContain(token);
@@ -207,8 +218,9 @@ describe("sending an invitation", () => {
 
   it("[E2E-USR-18] a second invitation to the same address replaces the first", async () => {
     const other = freshEmail();
-    await invite(adminAmc, amc, { email: other, roles: ["institution_writer"] });
-    const first = await emailedLink(other, "invitation", "invite");
+    const first = linkShown(
+      await invite(adminAmc, amc, { email: other, roles: ["institution_writer"] }),
+    );
     await invite(adminAmc, amc, { email: other, roles: ["institution_approver"] });
     const rows = await invitationsTo(other);
     expect(rows).toHaveLength(2);
@@ -228,8 +240,11 @@ describe("accepting an invitation as a new person", () => {
   let invitee: HttpClient;
 
   beforeAll(async () => {
-    await invite(adminAmc, amc, { email, roles: ["institution_writer"], name: "Kavya Iyer" });
-    link = linkPath((await emailedLink(email, "invitation", "invite")).url);
+    link = linkPath(
+      linkShown(
+        await invite(adminAmc, amc, { email, roles: ["institution_writer"], name: "Kavya Iyer" }),
+      ).url,
+    );
     invitee = person();
   });
 
@@ -360,8 +375,9 @@ describe("accepting an invitation as a new person", () => {
 describe("expired, re-sent and withdrawn invitations", () => {
   it("[E2E-USR-33] an expired invitation says so and cannot be accepted", async () => {
     const email = freshEmail();
-    await invite(adminAmc, amc, { email, roles: ["institution_writer"] });
-    const { url } = await emailedLink(email, "invitation", "invite");
+    const { url } = linkShown(
+      await invite(adminAmc, amc, { email, roles: ["institution_writer"] }),
+    );
     await db()
       .update(schema.invitations)
       .set({ expiresAt: new Date(Date.now() - 60_000) })
@@ -392,12 +408,10 @@ describe("expired, re-sent and withdrawn invitations", () => {
 
   it("[E2E-USR-35] sending again gives a new link, and the old one stays dead", async () => {
     const email = freshEmail();
-    await invite(adminAmc, amc, { email, roles: ["institution_writer"] });
-    const old = await emailedLink(email, "invitation", "invite");
+    const old = linkShown(await invite(adminAmc, amc, { email, roles: ["institution_writer"] }));
     const [row] = await invitationsTo(email);
     const res = await adminAmc.submitForm(`/users?org=${amc}`, `resend-${row!.id}`);
-    expect(parse(res.text).querySelector("[data-invited]")).not.toBeNull();
-    const fresh = await emailedLink(email, "invitation", "invite");
+    const fresh = linkShown(res);
     expect(fresh.token).not.toBe(old.token);
     const state = async (url: string) =>
       parse((await person().get(linkPath(url))).text)
@@ -409,8 +423,9 @@ describe("expired, re-sent and withdrawn invitations", () => {
 
   it("[E2E-USR-36] a withdrawn invitation stops working", async () => {
     const email = freshEmail();
-    await invite(adminAmc, amc, { email, roles: ["institution_writer"] });
-    const { url } = await emailedLink(email, "invitation", "invite");
+    const { url } = linkShown(
+      await invite(adminAmc, amc, { email, roles: ["institution_writer"] }),
+    );
     const [row] = await invitationsTo(email);
     const res = await adminAmc.submitForm(`/users?org=${amc}`, `withdraw-${row!.id}`);
     expect(res.status).toBe(303);
@@ -427,8 +442,9 @@ describe("an invited approver", () => {
   let client: HttpClient;
 
   it("[E2E-USR-37] an approver is sent to set up two-step verification first", async () => {
-    await invite(adminAmc, amc, { email, roles: ["institution_approver"] });
-    const { url } = await emailedLink(email, "invitation", "invite");
+    const { url } = linkShown(
+      await invite(adminAmc, amc, { email, roles: ["institution_approver"] }),
+    );
     client = person();
     const res = await client.submitForm(linkPath(url), "accept", {
       name: "Farhan Ali",
@@ -452,9 +468,15 @@ describe("inviting someone who already has an account", () => {
   let invitee: HttpClient;
 
   beforeAll(async () => {
-    existing = await throwaway([{ org: "sample-general-insurer", roles: ["institution_writer"] }]);
-    await invite(adminAmc, amc, { email: existing.email, roles: ["institution_writer"] });
-    link = linkPath((await emailedLink(existing.email, "invitation", "invite")).url);
+    // Two-step switched on by choice, so an admin could reset it if the rules allowed.
+    existing = await throwaway([{ org: "sample-general-insurer", roles: ["institution_writer"] }], {
+      twoStep: true,
+    });
+    link = linkPath(
+      linkShown(
+        await invite(adminAmc, amc, { email: existing.email, roles: ["institution_writer"] }),
+      ).url,
+    );
     invitee = person();
   });
 
@@ -491,7 +513,7 @@ describe("inviting someone who already has an account", () => {
     // The account itself is untouched: same name, same password.
     expect((await userByEmail(existing.email)).name).toBe(existing.name);
     expect((await signInWith(person(), existing.email, existing.password)).location).toBe(
-      "/dashboard",
+      "/login/verify",
     );
   });
 
@@ -512,21 +534,36 @@ describe("inviting someone who already has an account", () => {
     const page = await adminAmc.get(`/users/${existing.id}?org=${amc}`);
     expect(formsOn(page)).not.toContain("reset2fa");
     expect(formsOn(page)).not.toContain("resetLink");
-    // Forged: replay the form from a single-organisation person's page with this person's id.
-    const writer = await userByEmail(demoEmail("writer.amc"));
-    const other = await adminAmc.get(`/users/${writer.id}?org=${amc}`);
+    // Forged: replay the two-step form from a single-organisation person's page with this id.
+    const single = await throwaway([{ org: "sample-amc", roles: ["institution_approver"] }], {
+      twoStep: true,
+    });
+    const other = await adminAmc.get(`/users/${single.id}?org=${amc}`);
+    expect(formsOn(other)).toContain("reset2fa");
     const res = await adminAmc.submitForm(
-      `/users/${writer.id}?org=${amc}`,
-      "resetLink",
+      `/users/${single.id}?org=${amc}`,
+      "reset2fa",
       { userId: existing.id },
       { page: other },
     );
     expect(errorOf(res)).toContain("also belongs to another organisation");
-    const sent = await db()
-      .select()
-      .from(schema.passwordResets)
-      .where(eq(schema.passwordResets.userId, existing.id));
-    expect(sent).toHaveLength(0);
+    expect((await userByEmail(existing.email)).totpEnabled).toBe(true);
+    // The reset-link half runs once password reset exists (PASSWORD_RESET, D58).
+    if (process.env.PASSWORD_RESET === "1") {
+      expect(formsOn(other)).toContain("resetLink");
+      const link = await adminAmc.submitForm(
+        `/users/${single.id}?org=${amc}`,
+        "resetLink",
+        { userId: existing.id },
+        { page: other },
+      );
+      expect(errorOf(link)).toContain("also belongs to another organisation");
+      const sent = await db()
+        .select()
+        .from(schema.passwordResets)
+        .where(eq(schema.passwordResets.userId, existing.id));
+      expect(sent).toHaveLength(0);
+    }
   });
 
   it("[E2E-USR-44] a deactivated person cannot be invited", async () => {

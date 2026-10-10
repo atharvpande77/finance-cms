@@ -22,8 +22,41 @@ const inv = schema.invitations;
 const u = schema.users;
 const m = schema.memberships;
 
-/** The link is shown to the sender only when there is no email service to deliver it (D56). */
-const linkForSender = (link: string) => (env().SMTP_URL ? undefined : link);
+/**
+ * Invitation links go to the admin, who sends them on themselves (D58). The email is queued as
+ * well only when INVITE_EMAILS is on.
+ */
+async function emailInvitation(
+  tx: Tx,
+  input: {
+    to: string;
+    admin: Admin;
+    org: Org;
+    roles: readonly Role[];
+    link: string;
+    expiresAt: Date;
+  },
+): Promise<boolean> {
+  if (!env().INVITE_EMAILS) return false;
+  await queueEmail(
+    {
+      to: input.to,
+      kind: "invitation",
+      createdById: input.admin.user.id,
+      ...invitationEmail({
+        inviter: input.admin.user.name,
+        organisation: input.org.name,
+        roles: input.roles.map((r) => ROLE_LABELS[r]),
+        link: input.link,
+        expiresAt: input.expiresAt,
+      }),
+    },
+    tx,
+  );
+  return true;
+}
+
+export type InvitationLink = { email: string; link: string; emailed: boolean };
 
 async function createInvitation(
   admin: Admin,
@@ -32,9 +65,10 @@ async function createInvitation(
   nameHint: string | null,
   roles: Role[],
   ip: string,
-): Promise<string> {
+): Promise<InvitationLink> {
   const token = newToken();
   const link = publicUrl(`/invite/${token}`);
+  let emailed = false;
   const expiresAt = new Date(Date.now() + INVITE_DAYS * 86_400_000);
   await db().transaction(async (tx) => {
     // A new invitation replaces any pending one to the same address and organisation.
@@ -61,21 +95,7 @@ async function createInvitation(
         expiresAt,
       })
       .returning({ id: inv.id });
-    await queueEmail(
-      {
-        to: email,
-        kind: "invitation",
-        createdById: admin.user.id,
-        ...invitationEmail({
-          inviter: admin.user.name,
-          organisation: org.name,
-          roles: roles.map((r) => ROLE_LABELS[r]),
-          link,
-          expiresAt,
-        }),
-      },
-      tx,
-    );
+    emailed = await emailInvitation(tx, { to: email, admin, org, roles, link, expiresAt });
     await audit(
       {
         userId: admin.user.id,
@@ -86,14 +106,14 @@ async function createInvitation(
       tx,
     );
   });
-  return link;
+  return { email, link, emailed };
 }
 
 export async function invite(
   admin: Admin,
   input: { orgId: string; email: string; nameHint: string; roles: Role[] },
   ip: string,
-): Promise<Result<{ link?: string; email: string }>> {
+): Promise<Result<InvitationLink>> {
   const org = await managedOrg(admin, input.orgId);
   if (!org) return { ok: false, error: "You can't invite people into that organisation." };
   const email = normaliseEmail(input.email);
@@ -119,8 +139,7 @@ export async function invite(
       return { ok: false, error: `${email} already has those roles in ${org.name}.` };
     }
   }
-  const link = await createInvitation(admin, org, email, nameHint, input.roles, ip);
-  return { ok: true, email, link: linkForSender(link) };
+  return { ok: true, ...(await createInvitation(admin, org, email, nameHint, input.roles, ip)) };
 }
 
 /** The invitation, if the admin manages its organisation. */
@@ -133,40 +152,34 @@ async function managedInvitation(admin: Admin, invitationId: string) {
 }
 
 /**
- * Sends a pending or expired invitation again (04.12): the same invitation gets a new token and
- * a fresh week, so the old link stops working.
+ * A new link for a pending or expired invitation (04.12): the same invitation gets a new token
+ * and a fresh week, so the old link stops working (D57).
  */
 export async function resend(
   admin: Admin,
   invitationId: string,
   ip: string,
-): Promise<Result<{ link?: string; email: string }>> {
+): Promise<Result<InvitationLink>> {
   const found = await managedInvitation(admin, invitationId);
   if (!found) return { ok: false, error: "Invitation not found." };
   const { row, org } = found;
   const token = newToken();
   const link = publicUrl(`/invite/${token}`);
   const expiresAt = new Date(Date.now() + INVITE_DAYS * 86_400_000);
+  let emailed = false;
   await db().transaction(async (tx) => {
     await tx
       .update(inv)
       .set({ tokenHash: sha256(token), expiresAt })
       .where(eq(inv.id, row.id));
-    await queueEmail(
-      {
-        to: row.email,
-        kind: "invitation",
-        createdById: admin.user.id,
-        ...invitationEmail({
-          inviter: admin.user.name,
-          organisation: org.name,
-          roles: row.roles.map((r) => ROLE_LABELS[r]),
-          link,
-          expiresAt,
-        }),
-      },
-      tx,
-    );
+    emailed = await emailInvitation(tx, {
+      to: row.email,
+      admin,
+      org,
+      roles: row.roles,
+      link,
+      expiresAt,
+    });
     await audit(
       {
         userId: admin.user.id,
@@ -177,7 +190,7 @@ export async function resend(
       tx,
     );
   });
-  return { ok: true, email: row.email, link: linkForSender(link) };
+  return { ok: true, email: row.email, link, emailed };
 }
 
 export async function withdraw(admin: Admin, invitationId: string, ip: string): Promise<Result> {

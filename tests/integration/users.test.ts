@@ -1,12 +1,17 @@
 import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { db, schema } from "@/server/db/client";
 import { membershipsOf } from "@/server/auth/sessions";
 import { acceptNew, invite } from "@/server/users/invitations";
 import { completeReset, openReset, requestReset } from "@/server/users/resets";
 import { removeFromOrg, setRoles } from "@/server/users/manage";
 import { readOutbox } from "@/server/mail/outbox";
+
+// Password reset is off by default (D58); these tests exercise it as M6 will run it.
+vi.hoisted(() => {
+  process.env.PASSWORD_RESET = "1";
+});
 
 const IP = "10.3.0.1";
 const freshEmail = () => `int-${randomBytes(5).toString("hex")}@example.test`;
@@ -42,8 +47,11 @@ describe("invitations", () => {
       { orgId: await orgId("sample-amc"), email, nameHint: "", roles: ["institution_writer"] },
       IP,
     );
-    expect(result).toMatchObject({ ok: true, email });
-    const token = await linkTo(email, "invite");
+    expect(result).toMatchObject({ ok: true, email, emailed: false });
+    if (!result.ok) throw new Error(result.error);
+    // The link goes to the admin; no email is queued while INVITE_EMAILS is off (D58).
+    const token = result.link.split("/invite/")[1]!;
+    expect((await readOutbox(200)).some((e) => e.to === email)).toBe(false);
     const [row] = await db()
       .select()
       .from(schema.invitations)

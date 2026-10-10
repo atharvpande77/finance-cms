@@ -13,6 +13,7 @@ import {
   freshEmail,
   invite,
   linkPath,
+  linkShown,
   orgIdOf,
   sessionFor,
   signInWith,
@@ -22,6 +23,12 @@ import {
 import { freshInstitution } from "./publishing-helpers";
 
 const NEW_PASSWORD = "Brisk-Monsoon-2027";
+
+/**
+ * Password reset is off until email exists (D58). These checks are due in M6, which runs the
+ * suite with PASSWORD_RESET=1; until then the "while it is off" block below runs instead.
+ */
+const RESET = process.env.PASSWORD_RESET === "1";
 
 /** Asks for a reset as a visitor from their own address; returns the page's answer. */
 async function forgot(email: string, client: HttpClient = person()) {
@@ -34,7 +41,7 @@ const stateOf = async (url: string) =>
     .querySelector("[data-link-state]")
     ?.getAttribute("data-link-state");
 
-describe("asking for a reset link", () => {
+describe.runIf(RESET)("asking for a reset link", () => {
   it("[E2E-USR-66] the forgot-password page is not cached", async () => {
     const res = await person().get("/forgot");
     expect(res.status).toBe(200);
@@ -94,7 +101,7 @@ describe("asking for a reset link", () => {
   });
 });
 
-describe("using a reset link", () => {
+describe.runIf(RESET)("using a reset link", () => {
   let target: Throwaway;
   let earlier: HttpClient;
   let link: { url: string; token: string };
@@ -192,7 +199,7 @@ describe("using a reset link", () => {
   });
 });
 
-describe("links that should not work", () => {
+describe.runIf(RESET)("links that should not work", () => {
   it("[E2E-USR-83] an expired reset link says so", async () => {
     const someone = await throwaway([{ org: "sample-amc", roles: ["institution_writer"] }]);
     await forgot(someone.email);
@@ -254,40 +261,44 @@ describe("links that should not work", () => {
 });
 
 describe("links in email are built from the configured address", () => {
-  it("[E2E-USR-98] a forged Host header cannot redirect the link in a reset email", async () => {
-    const someone = await throwaway([{ org: "sample-amc", roles: ["institution_writer"] }]);
-    const forger = new HttpClient({
-      "x-forwarded-host": "evil.example",
-      "x-real-ip": `10.7.${[...randomBytes(2)].join(".")}`,
-    });
-    // A forged forwarded host is refused before anything is sent, whatever the Origin says.
-    for (const origin of ["http://localhost:3100", "http://evil.example"]) {
-      const res = await forger.submitForm(
-        "/forgot",
-        "forgot",
-        { email: someone.email },
-        { origin },
+  it.runIf(RESET)(
+    "[E2E-USR-98] a forged Host header cannot redirect the link in a reset email",
+    async () => {
+      const someone = await throwaway([{ org: "sample-amc", roles: ["institution_writer"] }]);
+      const forger = new HttpClient({
+        "x-forwarded-host": "evil.example",
+        "x-real-ip": `10.7.${[...randomBytes(2)].join(".")}`,
+      });
+      // A forged forwarded host is refused before anything is sent, whatever the Origin says.
+      for (const origin of ["http://localhost:3100", "http://evil.example"]) {
+        const res = await forger.submitForm(
+          "/forgot",
+          "forgot",
+          { email: someone.email },
+          { origin },
+        );
+        expect(res.status, origin).toBeGreaterThanOrEqual(400);
+      }
+      expect(await emailsTo(someone.email, "password_reset")).toBe(0);
+
+      // A genuine request's link comes from the configured address, not from the request.
+      await forgot(someone.email);
+      const link = await emailedLink(someone.email, "password_reset", "reset");
+      expect(link.origin).toBe("http://localhost:3100");
+
+      // The same for an invitation.
+      const { orgSlug } = await freshInstitution();
+      const adminUser = await throwaway([{ org: orgSlug, roles: ["institution_account_admin"] }], {
+        twoStep: true,
+      });
+      const admin = await sessionFor(adminUser.id);
+      const email = freshEmail();
+      const invitation = linkShown(
+        await invite(admin, await orgIdOf(orgSlug), { email, roles: ["institution_writer"] }),
       );
-      expect(res.status, origin).toBeGreaterThanOrEqual(400);
-    }
-    expect(await emailsTo(someone.email, "password_reset")).toBe(0);
-
-    // A genuine request's link comes from the configured address, not from the request.
-    await forgot(someone.email);
-    const link = await emailedLink(someone.email, "password_reset", "reset");
-    expect(link.origin).toBe("http://localhost:3100");
-
-    // The same for an invitation.
-    const { orgSlug } = await freshInstitution();
-    const adminUser = await throwaway([{ org: orgSlug, roles: ["institution_account_admin"] }], {
-      twoStep: true,
-    });
-    const admin = await sessionFor(adminUser.id);
-    const email = freshEmail();
-    await invite(admin, await orgIdOf(orgSlug), { email, roles: ["institution_writer"] });
-    const invitation = await emailedLink(email, "invitation", "invite");
-    expect(invitation.origin).toBe("http://localhost:3100");
-  });
+      expect(invitation.origin).toBe("http://localhost:3100");
+    },
+  );
 
   it("[E2E-USR-99] the development outbox does not exist in production", async () => {
     const res = await person().get("/dev/outbox");
@@ -299,5 +310,40 @@ describe("links in email are built from the configured address", () => {
       .orderBy(desc(schema.emailOutbox.createdAt))
       .limit(1);
     expect(res.text).not.toContain(latest[0]!.subject);
+  });
+});
+
+describe.runIf(!RESET)("while password reset is off (D58)", () => {
+  it("has no forgot-password or reset pages", async () => {
+    for (const path of ["/forgot", "/reset/abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG"]) {
+      expect((await person().get(path)).status, path).toBe(404);
+    }
+  });
+
+  it("offers no forgot-password link at sign-in", async () => {
+    const res = await person().get("/login");
+    expect(res.text).not.toContain("data-forgot-link");
+    expect(pageText(res.text)).not.toContain("Forgot your password?");
+  });
+
+  it("gives admins no reset-link button, and sends nothing", async () => {
+    const { orgSlug } = await freshInstitution();
+    const admin = await throwaway([{ org: orgSlug, roles: ["institution_account_admin"] }], {
+      twoStep: true,
+    });
+    const target = await throwaway([{ org: orgSlug, roles: ["institution_approver"] }], {
+      twoStep: true,
+    });
+    const org = await orgIdOf(orgSlug);
+    const client = await sessionFor(admin.id);
+    const page = await client.get(`/users/${target.id}?org=${org}`);
+    expect(formsOn(page)).not.toContain("resetLink");
+    expect(formsOn(page)).toContain("reset2fa");
+    const resets = await db()
+      .select()
+      .from(schema.passwordResets)
+      .where(eq(schema.passwordResets.userId, target.id));
+    expect(resets).toHaveLength(0);
+    expect(await emailsTo(target.email, "password_reset")).toBe(0);
   });
 });

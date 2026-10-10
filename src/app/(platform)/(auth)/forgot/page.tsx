@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { env } from "@/server/env";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ForgotForm } from "./ForgotForm";
 
@@ -10,6 +12,8 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default function ForgotPage() {
+  // No password reset before email exists (D58).
+  if (!env().PASSWORD_RESET) notFound();
   return (
     <Card>
       <CardHeader>

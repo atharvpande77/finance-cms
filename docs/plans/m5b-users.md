@@ -231,3 +231,10 @@ The phase gate needs this: the first sponsor's people must be invited before lau
   2. Change that person's role, remove them, and check that removing the only admin is refused.
   3. Forgot password: the same answer for any address; the reset link works once.
   4. As super.abc, invite compliance into Sample Life Insurer, then deactivate and reactivate a test user.
+
+## Changed after M5b (2026-10-10, D58)
+
+- Invitations: the admin copies the one-time link and sends it themselves. The invitation email
+  is behind `INVITE_EMAILS=1`, off by default.
+- Password reset (forgot, reset page, admin reset links) is behind `PASSWORD_RESET=1`, off
+  until email exists. Its checks are due with M6.

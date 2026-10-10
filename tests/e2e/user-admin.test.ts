@@ -13,6 +13,7 @@ import {
   GOOD_PASSWORD,
   invite,
   linkPath,
+  linkShown,
   orgIdOf,
   sessionFor,
   signInWith,
@@ -23,6 +24,8 @@ import {
 import { freshInstitution } from "./publishing-helpers";
 
 const started = new Date();
+/** Password reset is off until email exists (D58); M6 runs its checks with PASSWORD_RESET=1. */
+const RESET = process.env.PASSWORD_RESET === "1";
 let adminAmc: HttpClient;
 let superAdmin: HttpClient;
 let adminAmcId: string;
@@ -209,7 +212,7 @@ describe("deactivating an account", () => {
     expect(nobody).toBe(wrong);
   });
 
-  it("[E2E-USR-58] no reset email is sent to a deactivated account", async () => {
+  it.runIf(RESET)("[E2E-USR-58] no reset email is sent to a deactivated account", async () => {
     const answer = await person().submitForm("/forgot", "forgot", { email: target.email });
     expect(pageText(answer.text)).toContain("If that address has an abcfinance account");
     expect(await emailsTo(target.email, "password_reset")).toBe(0);
@@ -295,7 +298,7 @@ describe("resetting two-step verification", () => {
   });
 });
 
-describe("an admin sends a reset link", () => {
+describe.runIf(RESET)("an admin sends a reset link", () => {
   let target: Throwaway;
   let response: Awaited<ReturnType<typeof act>>;
   beforeAll(async () => {
@@ -338,8 +341,9 @@ describe("the audit trail", () => {
       .select()
       .from(schema.invitations)
       .where(eq(schema.invitations.email, email));
-    await adminAmc.submitForm(`/users?org=${amc}`, `resend-${first!.id}`);
-    const { url } = await emailedLink(email, "invitation", "invite");
+    const { url } = linkShown(
+      await adminAmc.submitForm(`/users?org=${amc}`, `resend-${first!.id}`),
+    );
     await person().submitForm(linkPath(url), "accept", {
       name: "Audit Person",
       newPassword: GOOD_PASSWORD,
@@ -352,13 +356,15 @@ describe("the audit trail", () => {
       .from(schema.invitations)
       .where(eq(schema.invitations.email, withdrawn));
     await adminAmc.submitForm(`/users?org=${amc}`, `withdraw-${w!.id}`);
-    const resetter = await throwaway([{ org: orgSlug, roles: ["institution_writer"] }]);
-    await person().submitForm("/forgot", "forgot", { email: resetter.email });
-    const reset = await emailedLink(resetter.email, "password_reset", "reset");
-    await person().submitForm(linkPath(reset.url), "reset", {
-      newPassword: "Steady-Current-2028",
-      confirmPassword: "Steady-Current-2028",
-    });
+    if (RESET) {
+      const resetter = await throwaway([{ org: orgSlug, roles: ["institution_writer"] }]);
+      await person().submitForm("/forgot", "forgot", { email: resetter.email });
+      const reset = await emailedLink(resetter.email, "password_reset", "reset");
+      await person().submitForm(linkPath(reset.url), "reset", {
+        newPassword: "Steady-Current-2028",
+        confirmPassword: "Steady-Current-2028",
+      });
+    }
 
     const actions = [
       "user.invited",
@@ -370,9 +376,8 @@ describe("the audit trail", () => {
       "user.deactivated",
       "user.reactivated",
       "user.2fa_reset",
-      "user.reset_link_sent",
-      "auth.reset_requested",
-      "auth.password_reset",
+      // Password reset exists only once email does (D58).
+      ...(RESET ? ["user.reset_link_sent", "auth.reset_requested", "auth.password_reset"] : []),
     ];
     const rows = await db()
       .select({

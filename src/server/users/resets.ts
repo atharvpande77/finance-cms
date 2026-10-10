@@ -1,5 +1,6 @@
 import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import { db, schema } from "@/server/db/client";
+import { env } from "@/server/env";
 import { audit } from "@/server/audit";
 import { keyedHash, newToken, sha256 } from "@/server/crypto/hash";
 import { hit } from "@/server/ratelimit";
@@ -53,6 +54,7 @@ async function createReset(
  * an account, is deactivated, is malformed or is over its limit is never revealed.
  */
 export async function requestReset(rawEmail: string, ip: string): Promise<void> {
+  if (!env().PASSWORD_RESET) return; // No reset before email exists (D58).
   const email = normaliseEmail(rawEmail.slice(0, 320));
   const source = await hit("reset:ip", ip, RESET_PER_SOURCE, RESET_WINDOW_SECONDS);
   if (!source.allowed || !isEmail(email)) {
@@ -83,6 +85,9 @@ export async function sendResetLink(
   userId: string,
   ip: string,
 ): Promise<Result> {
+  if (!env().PASSWORD_RESET) {
+    return { ok: false, error: "Password reset links aren't available yet." };
+  }
   const target = await loadTarget(admin, orgId, userId);
   if (!target) return { ok: false, error: NOT_FOUND };
   if (!target.actions.includes("resetLink")) {
@@ -109,6 +114,7 @@ export type ResetLink =
 
 /** What the reset page may show: the link must be usable, the newest, and the account active. */
 export async function openReset(token: string, now = new Date()): Promise<ResetLink> {
+  if (!env().PASSWORD_RESET) return { state: "invalid" };
   if (!/^[A-Za-z0-9_-]{20,100}$/.test(token)) return { state: "invalid" };
   const [row] = await db()
     .select({ reset: r, user: u })

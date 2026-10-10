@@ -1,8 +1,9 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { assertSameOrigin, requestIp, setSessionCookie } from "@/server/auth/current";
+import { env } from "@/server/env";
 import { acceptExisting, acceptNew } from "@/server/users/invitations";
 import { completeReset, requestReset } from "@/server/users/resets";
 import { PASSWORD_PROBLEM_TEXT } from "@/domain/password-policy";
@@ -18,6 +19,7 @@ const LINK_TEXT = {
 } as const;
 
 export async function forgotAction(_prev: LinkFormState, form: FormData): Promise<LinkFormState> {
+  if (!env().PASSWORD_RESET) notFound(); // No reset before email exists (D58).
   await assertSameOrigin();
   const { email } = z.object({ email: z.string().max(1000).default("") }).parse({
     email: form.get("email"),
@@ -37,6 +39,7 @@ export async function resetPasswordAction(
   _prev: LinkFormState,
   form: FormData,
 ): Promise<LinkFormState> {
+  if (!env().PASSWORD_RESET) notFound();
   await assertSameOrigin();
   const input = resetForm.parse({
     token: form.get("token"),

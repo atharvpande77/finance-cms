@@ -498,3 +498,25 @@ the administrator (E2E-USR-87).
   `Origin` before our code runs, and our own check pins `Origin` to `APP_URL`. So a request with
   a forged host sends nothing at all, and every link in email is still built from `APP_URL`
   (E2E-USR-98 tests both).
+
+## D58. Invitation links are copied by the admin; no password reset until email exists (2026-10-10, user decision; amends D56)
+
+There is no email service yet (it comes with M6), so:
+- **Invitations:** an admin adds a person on the Users page and is shown a one-time link with a
+  Copy button. They send it to the person themselves, outside the app. The link works once, for
+  7 days: a new person sets their password with it, and someone with an account adds the roles
+  with theirs. Only the token's hash is stored, so the link is shown once; "New link" makes a
+  fresh one (D57).
+  - The invitation email stays in the code behind `INVITE_EMAILS=1` (off by default). When it is
+    on, the email goes out too, and the link is still shown.
+  - This replaces D56's "link shown only without an email service".
+- **Password reset doesn't exist yet:** no "Forgot your password?", no `/forgot` or
+  `/reset/<token>` page (both answer 404), and no "Email a reset link" button for admins.
+  - The code stays behind `PASSWORD_RESET=1` (off by default) until email exists.
+  - Someone who forgets their password can be removed and added again, and an admin can still
+    reset their two-step verification.
+  - Changing your own password while signed in (M2) is unchanged.
+- **Acceptance:** the checks that need either feature (E2E-USR-08, 58, 66–88 and 98) are due with
+  M6. Their tests run when the e2e harness is started with `INVITE_EMAILS=1` and
+  `PASSWORD_RESET=1`. With the default settings, tests check that the pages answer 404, that
+  inviting queues no email, and that admins get no reset-link button.

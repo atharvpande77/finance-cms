@@ -5,6 +5,7 @@ import { CircleCheck } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { currentSession } from "@/server/auth/current";
+import { env } from "@/server/env";
 import { LoginForm } from "./LoginForm";
 
 export const metadata: Metadata = { title: "Sign in" };
@@ -39,13 +40,15 @@ export default async function LoginPage({
           </Alert>
         ) : null}
         <LoginForm />
-        <Link
-          href="/forgot"
-          className="text-center text-sm text-muted-foreground hover:text-foreground hover:underline"
-          data-forgot-link
-        >
-          Forgot your password?
-        </Link>
+        {env().PASSWORD_RESET ? (
+          <Link
+            href="/forgot"
+            className="text-center text-sm text-muted-foreground hover:text-foreground hover:underline"
+            data-forgot-link
+          >
+            Forgot your password?
+          </Link>
+        ) : null}
       </CardContent>
     </Card>
   );

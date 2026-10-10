@@ -167,19 +167,41 @@ describe("what an admin may do to a person", () => {
 
   it("gives nothing on oneself, or outside one's organisation", () => {
     expect(
-      personActions({ actorMs: admin, actorId: "t", orgId: "amc", orgType: "institution", target }),
+      personActions({
+        resetLinks: true,
+        actorMs: admin,
+        actorId: "t",
+        orgId: "amc",
+        orgType: "institution",
+        target,
+      }),
     ).toEqual([]);
     expect(
-      personActions({ actorMs: admin, actorId: "x", orgId: "gi", orgType: "institution", target }),
+      personActions({
+        resetLinks: true,
+        actorMs: admin,
+        actorId: "x",
+        orgId: "gi",
+        orgType: "institution",
+        target,
+      }),
     ).toEqual([]);
   });
 
   it("keeps cross-organisation actions and deactivation from an institution admin", () => {
     expect(
-      personActions({ actorMs: admin, actorId: "x", orgId: "amc", orgType: "institution", target }),
+      personActions({
+        resetLinks: true,
+        actorMs: admin,
+        actorId: "x",
+        orgId: "amc",
+        orgType: "institution",
+        target,
+      }),
     ).toEqual(["roles", "remove", "reset2fa", "resetLink"]);
     expect(
       personActions({
+        resetLinks: true,
         actorMs: admin,
         actorId: "x",
         orgId: "amc",
@@ -189,6 +211,7 @@ describe("what an admin may do to a person", () => {
     ).toEqual(["roles", "remove"]);
     expect(
       personActions({
+        resetLinks: true,
         actorMs: sup,
         actorId: "x",
         orgId: "amc",
@@ -196,5 +219,18 @@ describe("what an admin may do to a person", () => {
         target: { ...target, belongsElsewhere: true, totpEnabled: false, disabled: true },
       }),
     ).toEqual(["roles", "remove", "reactivate"]);
+  });
+
+  it("offers no reset link while password reset is off (D58)", () => {
+    expect(
+      personActions({
+        resetLinks: false,
+        actorMs: sup,
+        actorId: "x",
+        orgId: "amc",
+        orgType: "institution",
+        target,
+      }),
+    ).toEqual(["roles", "remove", "reset2fa", "deactivate"]);
   });
 });

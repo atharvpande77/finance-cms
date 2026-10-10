@@ -1,5 +1,6 @@
 import { and, eq, isNull, ne } from "drizzle-orm";
 import { db, schema, type Db, type Tx } from "@/server/db/client";
+import { env } from "@/server/env";
 import type { SessionInfo } from "@/server/auth/sessions";
 import type { OrganisationType, Role } from "@/domain/roles";
 import { canManageUsers, personActions, type PersonAction } from "@/domain/users";
@@ -81,6 +82,7 @@ export async function loadTarget(
         totpEnabled: user.totpEnabled,
         disabled: user.disabledAt !== null,
       },
+      resetLinks: env().PASSWORD_RESET,
     }),
   };
 }
