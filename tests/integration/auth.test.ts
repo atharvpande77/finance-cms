@@ -9,6 +9,7 @@ import { createSession, loadSession } from "@/server/auth/sessions";
 import { sha256 } from "@/server/crypto/hash";
 import { open } from "@/server/crypto/secret-box";
 import { readOutbox } from "@/server/mail/outbox";
+import { resetEnvCache } from "@/server/env";
 import { stepAt, totpAt } from "@/domain/totp";
 import type { Role } from "@/domain/roles";
 
@@ -344,5 +345,88 @@ describe("audit", () => {
       sql`SELECT detail::text AS d FROM audit_events WHERE action = 'auth.signin_failed'`,
     );
     expect(JSON.stringify(rows)).not.toContain(email);
+  });
+});
+
+describe("development two-step bypass (D41)", () => {
+  const saved = { ...process.env };
+  const withEnv = async (vars: Record<string, string>, run: () => Promise<void>) => {
+    Object.assign(process.env, vars);
+    resetEnvCache();
+    try {
+      await run();
+    } finally {
+      process.env = { ...saved };
+      resetEnvCache();
+    }
+  };
+
+  it("refuses 111111 outside development, even with the flag", async () => {
+    await withEnv({ DEV_TOTP_BYPASS: "1" }, async () => {
+      const u = await approver();
+      const address = ip();
+      const s = await signIn({ email: u.email, password: PASSWORD, ip: address });
+      if (s.kind !== "ok") throw new Error(s.kind);
+      await startEnrolment(u.id);
+      const r = await confirmEnrolment({
+        userId: u.id,
+        sessionId: s.session.id,
+        code: "111111",
+        ip: address,
+      });
+      expect(r.kind).toBe("invalid");
+    });
+  });
+
+  it("accepts 111111 for set-up and sign-in under development with the flag", async () => {
+    await withEnv({ NODE_ENV: "development", DEV_TOTP_BYPASS: "1" }, async () => {
+      const u = await approver();
+      const address = ip();
+      const first = await signIn({ email: u.email, password: PASSWORD, ip: address });
+      if (first.kind !== "ok") throw new Error(first.kind);
+      await startEnrolment(u.id);
+      const enrolled = await confirmEnrolment({
+        userId: u.id,
+        sessionId: first.session.id,
+        code: "111111",
+        ip: address,
+      });
+      expect(enrolled.kind).toBe("ok");
+      expect((await userById(u.id)).totpEnabled).toBe(true);
+      const second = await signIn({ email: u.email, password: PASSWORD, ip: address });
+      if (second.kind !== "ok") throw new Error(second.kind);
+      const verified = await verifyCode({
+        userId: u.id,
+        sessionId: second.session.id,
+        code: "111111",
+        ip: address,
+      });
+      expect(verified.kind).toBe("ok");
+      const bypassed = await db()
+        .select()
+        .from(schema.auditEvents)
+        .where(eq(schema.auditEvents.userId, u.id));
+      expect(bypassed.filter((a) => a.detail.devBypass === true).map((a) => a.action)).toEqual([
+        "auth.2fa_enrolled",
+        "auth.2fa_ok",
+      ]);
+    });
+  });
+
+  it("still requires the flag in development", async () => {
+    await withEnv({ NODE_ENV: "development", DEV_TOTP_BYPASS: "0" }, async () => {
+      const u = await approver();
+      const address = ip();
+      const s = await signIn({ email: u.email, password: PASSWORD, ip: address });
+      if (s.kind !== "ok") throw new Error(s.kind);
+      await startEnrolment(u.id);
+      const r = await confirmEnrolment({
+        userId: u.id,
+        sessionId: s.session.id,
+        code: "111111",
+        ip: address,
+      });
+      expect(r.kind).toBe("invalid");
+    });
   });
 });

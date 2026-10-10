@@ -336,3 +336,15 @@ launch (09.3 #12). The consent version stays `v1`; a reviewed wording should bec
 04.6 lists worked %, qualified % (of worked leads that aren't junk) and junk %, without saying
 junk of what. We use junk ÷ all leads, so a sponsor sees how much of what arrives is unusable.
 
+
+## D41. A development-only two-step test code (2026-10-10, user decision)
+
+For quick local testing, `next dev` with `DEV_TOTP_BYPASS=1` accepts the fixed code `111111` for
+two-step set-up and sign-in, so demo accounts can sign in without an authenticator app. It is
+fenced three ways:
+- it works only when `NODE_ENV` is `development`, so production builds (including the e2e
+  suite's) ignore it;
+- the server refuses to start if the flag is set in production;
+- every sign-in through it is audited with `devBypass: true`.
+
+The flag is documented in `.env.example` and off by default. Real codes keep working alongside it.

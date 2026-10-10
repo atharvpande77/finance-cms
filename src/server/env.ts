@@ -31,12 +31,27 @@ const schema = z
       .string()
       .optional()
       .transform((v) => v === "1"),
+    /**
+     * Development only: "1" lets the fixed code 111111 pass two-step set-up and sign-in for quick
+     * local testing. The server refuses to start with it in production (D41).
+     */
+    DEV_TOTP_BYPASS: z
+      .string()
+      .optional()
+      .transform((v) => v === "1"),
     ADS_PREVIEW: z
       .string()
       .optional()
       .transform((v) => v === "1"),
   })
   .superRefine((env, ctx) => {
+    if (env.NODE_ENV === "production" && env.DEV_TOTP_BYPASS) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["DEV_TOTP_BYPASS"],
+        message: "DEV_TOTP_BYPASS must not be set in production",
+      });
+    }
     if (env.NODE_ENV === "production" && !env.APP_URL) {
       ctx.addIssue({
         code: "custom",

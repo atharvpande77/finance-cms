@@ -8,8 +8,17 @@ import { addressAllowed, isLocked, recordFailure, recordSuccess } from "./signin
 import { upgradeSession, type NewSession } from "./sessions";
 import { newTotpSecret, otpauthUri, verifyTotp } from "@/domain/totp";
 import { ENROL_CODE_LIMIT, ENROL_CODE_WINDOW_SECONDS } from "@/domain/auth-limits";
+import { env } from "@/server/env";
 
 /** Two-step verification (TOTP): set-up and the second sign-in step (04.12, 06.1). */
+
+/** Accepted only under `next dev` with DEV_TOTP_BYPASS=1; production refuses the flag (D41). */
+const DEV_BYPASS_CODE = "111111";
+
+function devBypass(code: string): boolean {
+  const e = env();
+  return e.NODE_ENV === "development" && e.DEV_TOTP_BYPASS && code.trim() === DEV_BYPASS_CODE;
+}
 
 export type Enrolment = { secret: string; uri: string; qrSvg: string };
 
@@ -69,6 +78,18 @@ export async function confirmEnrolment(input: {
   if (!limit.allowed) return { kind: "tooMany" };
   const [user] = await db().select().from(schema.users).where(eq(schema.users.id, input.userId));
   if (!user?.totpSecretEnc || user.totpEnabled) return { kind: "invalid" };
+  if (devBypass(input.code)) {
+    await db().update(schema.users).set({ totpEnabled: true }).where(eq(schema.users.id, user.id));
+    await recordSuccess(user.id);
+    const session = await upgradeSession(input.sessionId);
+    await audit({
+      userId: user.id,
+      action: "auth.2fa_enrolled",
+      detail: { devBypass: true },
+      ip: input.ip,
+    });
+    return { kind: "ok", session };
+  }
   const step = verifyTotp(open(user.totpSecretEnc), input.code, Date.now());
   if (step === null || !(await claimStep(user.id, step, true))) {
     await audit({
@@ -98,6 +119,17 @@ export async function verifyCode(input: {
   if (isLocked(user)) {
     await audit({ userId: user.id, action: "auth.signin_blocked", ip: input.ip });
     return { kind: "locked" };
+  }
+  if (devBypass(input.code)) {
+    await recordSuccess(user.id);
+    const session = await upgradeSession(input.sessionId);
+    await audit({
+      userId: user.id,
+      action: "auth.2fa_ok",
+      detail: { devBypass: true },
+      ip: input.ip,
+    });
+    return { kind: "ok", session };
   }
   const step = verifyTotp(open(user.totpSecretEnc), input.code, Date.now());
   if (step === null || !(await claimStep(user.id, step, false))) {
