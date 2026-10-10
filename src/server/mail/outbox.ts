@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, lt, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt, or } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import { db, schema, type Db, type Tx } from "@/server/db/client";
 import { env } from "@/server/env";
@@ -81,7 +81,7 @@ export async function readOutbox(limit = 50, ids?: string[]) {
     .select()
     .from(t)
     .where(ids ? inArray(t.id, ids) : undefined)
-    .orderBy(asc(t.createdAt))
+    .orderBy(desc(t.createdAt), desc(t.id))
     .limit(limit);
-  return rows.reverse().map(({ bodyEnc, ...rest }) => ({ ...rest, body: open(bodyEnc) }));
+  return rows.map(({ bodyEnc, ...rest }) => ({ ...rest, body: open(bodyEnc) }));
 }

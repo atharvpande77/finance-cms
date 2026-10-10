@@ -46,7 +46,11 @@ describe("panel shell", () => {
         const res = await client.get(path);
         expect(res.status, `${c.name} ${path}`).toBe(200);
         // Areas not built yet are guarded placeholders.
-        if (!["/articles", "/publisher", "/calculators", "/leads", "/reports"].includes(path)) {
+        if (
+          !["/articles", "/publisher", "/calculators", "/leads", "/reports", "/users"].includes(
+            path,
+          )
+        ) {
           expect(res.text).toContain("data-area-stub");
         }
       }

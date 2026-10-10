@@ -1,4 +1,5 @@
 /** Signing in as demo users over HTTP, and reading what the server stored or emailed. */
+import { randomBytes } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import { expect } from "vitest";
 import { db, schema } from "@/server/db/client";
@@ -9,11 +10,12 @@ import { HttpClient, type HttpResponse } from "../http-client";
 export const DEMO_PASSWORD = "Demo-Pass-2026";
 export const demoEmail = (name: string) => `${name}@demo.abcfinance.test`;
 
-let address = 0;
-/** One simulated person: their own cookies, and their own address as nginx would report it. */
+/**
+ * One simulated person: their own cookies, and their own address as nginx would report it.
+ * Random, so suites running in parallel never share a sign-in rate-limit bucket.
+ */
 export function person(): HttpClient {
-  address += 1;
-  return new HttpClient({ "x-real-ip": `10.9.${Math.floor(address / 250)}.${address % 250}` });
+  return new HttpClient({ "x-real-ip": `10.9.${[...randomBytes(2)].join(".")}` });
 }
 
 export function login(client: HttpClient, name: string, password = DEMO_PASSWORD) {

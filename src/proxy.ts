@@ -21,6 +21,9 @@ const SITE_FILES: Record<string, string> = {
   "/_a/h": "beacon",
 };
 
+/** The panel pages that carry a one-time token, or ask for one (05.2). */
+const LINK_PAGE = /^\/(forgot|reset\/[^/]+|invite\/[^/]+)\/?$/;
+
 function notFound() {
   return new NextResponse("Not found", {
     status: 404,
@@ -45,7 +48,14 @@ export async function proxy(request: NextRequest) {
     const headers = new Headers(request.headers);
     headers.delete(PAGE_PATH_HEADER);
     headers.delete(PAGE_LANG_HEADER);
-    return NextResponse.next({ request: { headers } });
+    const response = NextResponse.next({ request: { headers } });
+    // One-time link pages never leak their token through Referer, and are never indexed (05.2).
+    if (LINK_PAGE.test(pathname)) {
+      response.headers.set("Referrer-Policy", "no-referrer");
+      response.headers.set("X-Robots-Tag", "noindex, nofollow");
+      response.headers.set("Cache-Control", "no-store");
+    }
+    return response;
   }
 
   const tenant = await tenantByHost(rawHost);

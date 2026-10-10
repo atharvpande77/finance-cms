@@ -27,6 +27,22 @@ const when = new Intl.DateTimeFormat("en-IN", {
 
 export default async function DashboardPage() {
   const s = await requireUser();
+  if (s.memberships.length === 0) {
+    // Removed from every organisation: the account stays, without access (D52).
+    return (
+      <>
+        <PageHeader title={`Welcome, ${s.user.name.split(" ")[0]}`} />
+        <Card data-no-roles>
+          <CardHeader>
+            <CardTitle>You aren&apos;t part of any organisation yet</CardTitle>
+            <CardDescription>
+              An administrator can invite you again. You&apos;ll add the roles with your password.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </>
+    );
+  }
   const [activity, waiting, copies] = await Promise.all([
     recentActivity(s.user.id),
     waitingFor(s),

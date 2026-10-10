@@ -455,3 +455,46 @@ papers are indexed, staging papers are noindex. A **short summary** is under 70 
 (search engines show roughly 150; under 70 usually means a placeholder). **Overdue review**
 means `reviewBy` is before today. **No views** means a published copy with no views in the
 chosen month.
+
+## D52. An account with no roles stays, without access (2026-10-10, user decision)
+
+Removing someone's only role leaves their account in place. Signing in shows "You aren't part
+of any organisation yet" and nothing else. They can be invited again later through the
+existing-account path, with their password. Deactivation stays a separate super-admin action, so
+removing the last role doesn't block a future invitation (E2E-USR-44 refuses deactivated people).
+
+## D53. Nobody edits their own roles (2026-10-10, M5b)
+
+04.12 says nobody removes or deactivates themselves. Changing one's own roles is refused too:
+another administrator must do it. This also stops someone demoting themselves out of the last
+administrator seat.
+
+## D54. Other organisations are named only to the super admin (2026-10-10, M5b)
+
+An institution's account admin sees "Also has roles in another organisation" on a person who
+belongs elsewhere too (and the actions 04.12 forbids on them are hidden), but not which
+organisation, which is another organisation's business. The super admin sees the names.
+
+## D55. "Only the newest reset link works" is checked when the link is used (2026-10-10, M5b)
+
+A reset link works only if it is the person's most recent reset row, still unused and unexpired.
+Requesting a new one therefore retires the older links without touching them, and no extra
+column is needed.
+
+## D56. Without an email service, only the inviter sees the invitation link (2026-10-10, M5b)
+
+When `SMTP_URL` is not set, the invitation is still queued, and the invite form's response
+shows its link once, to the person who sent it (E2E-USR-10). The link is never put in a URL or
+shown to other admins on the Users page. Reset links an administrator sends are never shown to
+the administrator (E2E-USR-87).
+
+## D57. Re-sending an invitation gives it a new token; forged hosts never reach the forms (2026-10-10, M5b)
+
+- **Re-send** keeps the same invitation and gives it a new token and a fresh 7 days. The old
+  link stops working at once because its hash no longer exists, and the Users page keeps showing
+  the invitation, with the link for the sender when there is no email service (D56). A new
+  invitation to the same address and organisation still replaces the pending one (04.12).
+- **Forged hosts:** Next.js refuses any form post whose `X-Forwarded-Host` doesn't match its
+  `Origin` before our code runs, and our own check pins `Origin` to `APP_URL`. So a request with
+  a forged host sends nothing at all, and every link in email is still built from `APP_URL`
+  (E2E-USR-98 tests both).

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FormError } from "@/components/panel/FormError";
 import { SubmitButton } from "@/components/panel/SubmitButton";
+import { NewPasswordFields } from "@/components/auth/NewPasswordFields";
 import { changePasswordAction, type PasswordFormState } from "../../../_actions/account";
 
 export function PasswordForm() {
@@ -33,41 +34,7 @@ export function PasswordForm() {
           required
         />
       </div>
-      <div className="grid gap-2">
-        <Label htmlFor="newPassword">New password</Label>
-        <Input
-          id="newPassword"
-          name="newPassword"
-          type="password"
-          autoComplete="new-password"
-          required
-          minLength={10}
-          maxLength={200}
-          aria-describedby="password-rules"
-        />
-        {state.problems?.length ? (
-          <ul className="grid gap-1 text-sm text-destructive" data-problems>
-            {state.problems.map((p) => (
-              <li key={p}>{p}</li>
-            ))}
-          </ul>
-        ) : (
-          <p id="password-rules" className="text-sm text-pretty text-muted-foreground">
-            At least 10 characters, with letters and a number. Avoid common passwords and your own
-            name.
-          </p>
-        )}
-      </div>
-      <div className="grid gap-2">
-        <Label htmlFor="confirmPassword">Repeat the new password</Label>
-        <Input
-          id="confirmPassword"
-          name="confirmPassword"
-          type="password"
-          autoComplete="new-password"
-          required
-        />
-      </div>
+      <NewPasswordFields problems={state.problems} />
       <SubmitButton className="justify-self-start">Change password</SubmitButton>
     </form>
   );
