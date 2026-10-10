@@ -10,6 +10,8 @@ const LABELS: Record<string, string> = {
   "auth.signout": "Signed out",
   "auth.password_changed": "Password changed",
   "auth.password_change_refused": "Password change refused: wrong current password",
+  "auth.password_reset": "Password reset with a link",
+  "invitation.accepted": "Joined with an invitation",
 };
 
 export function activityLabel(action: string): string {

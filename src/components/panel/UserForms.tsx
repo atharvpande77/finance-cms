@@ -100,6 +100,32 @@ function RoleChecks({ roles, checked }: { roles: readonly Role[]; checked: reado
   );
 }
 
+/**
+ * A reset link an admin made, for them to send on while there is no email (D59). Shown once,
+ * here only.
+ */
+function ResetLinkShown({ link, name }: { link: string; name: string }) {
+  return (
+    <Alert variant="success" data-reset-link-shown>
+      <CircleCheck strokeWidth={1.75} />
+      <AlertDescription className="grid gap-2.5">
+        <span className="text-pretty">
+          Send this link to <span className="font-medium">{name}</span> yourself. It works once, for
+          60 minutes, and lets them choose a new password. Their two-step stays on. You won&apos;t
+          see it again.
+        </span>
+        <code
+          className="block rounded-md bg-background px-2 py-1.5 font-mono text-xs break-all text-foreground select-all"
+          data-reset-link
+        >
+          {link}
+        </code>
+        <CopyLink link={link} />
+      </AlertDescription>
+    </Alert>
+  );
+}
+
 export function InviteForm({ orgId, roles }: { orgId: string; roles: readonly Role[] }) {
   const [state, action] = useActionState<UserActionState, FormData>(inviteAction, {});
   return (
@@ -218,11 +244,17 @@ export function PersonActionForm({
   orgId,
   userId,
   explain,
+  label,
+  personName,
 }: {
   kind: PersonActionKey;
   orgId: string;
   userId: string;
   explain: string;
+  /** Overrides the action's usual button text. */
+  label?: string;
+  /** Who a copied reset link is for, in the note shown with it. */
+  personName?: string;
 }) {
   const def = PERSON_ACTIONS[kind];
   const [state, action] = useActionState<UserActionState, FormData>(def.action, {});
@@ -239,8 +271,13 @@ export function PersonActionForm({
         size="sm"
         className="justify-self-start"
       >
-        {def.label}
+        {label ?? def.label}
       </SubmitButton>
+      {state.resetLink ? (
+        <div className="sm:col-span-2">
+          <ResetLinkShown link={state.resetLink} name={personName ?? "them"} />
+        </div>
+      ) : null}
       {state.error ? (
         <div className="sm:col-span-2">
           <FormError message={state.error} />

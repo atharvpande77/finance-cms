@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Inbox, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Inbox, KeyRound, ShieldAlert, ShieldCheck } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/panel/PageHeader";
 import { requireUser } from "@/server/auth/current";
 import { recentActivity } from "@/server/auth/activity";
+import { recentAdminReset } from "@/server/users/resets";
 import { waitingFor } from "@/server/articles/queries";
 import { waitingCopies } from "@/server/publishing/queue";
 import { LANGUAGE_NAMES } from "@/components/panel/articleLabels";
@@ -25,13 +27,32 @@ const when = new Intl.DateTimeFormat("en-IN", {
   timeZone: "Asia/Kolkata",
 });
 
+/**
+ * For a week after an admin's link reset this person's password, so a reset they didn't ask
+ * for gets noticed even without email (D59).
+ */
+function ResetNotice({ reset }: { reset: { at: Date; by: string } | null }) {
+  if (!reset) return null;
+  return (
+    <Alert variant="warning" className="mb-6" data-reset-notice>
+      <KeyRound strokeWidth={1.75} />
+      <AlertDescription className="text-pretty">
+        Your password was reset on {when.format(reset.at)} with a link from {reset.by}. If you
+        didn&apos;t ask for this, tell your administrator or abcfinance straight away.
+      </AlertDescription>
+    </Alert>
+  );
+}
+
 export default async function DashboardPage() {
   const s = await requireUser();
+  const reset = await recentAdminReset(s.user.id);
   if (s.memberships.length === 0) {
     // Removed from every organisation: the account stays, without access (D52).
     return (
       <>
         <PageHeader title={`Welcome, ${s.user.name.split(" ")[0]}`} />
+        <ResetNotice reset={reset} />
         <Card data-no-roles>
           <CardHeader>
             <CardTitle>You aren&apos;t part of any organisation yet</CardTitle>
@@ -63,6 +84,7 @@ export default async function DashboardPage() {
   return (
     <>
       <PageHeader title={`Welcome, ${s.user.name.split(" ")[0]}`} />
+      <ResetNotice reset={reset} />
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="md:col-span-2">
           <CardHeader>

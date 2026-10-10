@@ -39,7 +39,6 @@ export async function resetPasswordAction(
   _prev: LinkFormState,
   form: FormData,
 ): Promise<LinkFormState> {
-  if (!env().PASSWORD_RESET) notFound();
   await assertSameOrigin();
   const input = resetForm.parse({
     token: form.get("token"),

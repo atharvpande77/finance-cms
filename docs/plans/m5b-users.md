@@ -238,3 +238,6 @@ The phase gate needs this: the first sponsor's people must be invited before lau
   is behind `INVITE_EMAILS=1`, off by default.
 - Password reset (forgot, reset page, admin reset links) is behind `PASSWORD_RESET=1`, off
   until email exists. Its checks are due with M6.
+- Admins get a password reset link to copy while there is no email (D59), with a 24-hour rule
+  against one admin both making a link and resetting two-step, and a dashboard notice for the
+  person. With `PASSWORD_RESET=1` the link is emailed instead.

@@ -109,8 +109,6 @@ export function personActions(input: {
   orgId: string;
   orgType: OrganisationType;
   target: { id: string; belongsElsewhere: boolean; totpEnabled: boolean; disabled: boolean };
-  /** Reset links exist only once email does (PASSWORD_RESET, D58). */
-  resetLinks: boolean;
 }): PersonAction[] {
   const { actorMs, actorId, orgId, orgType, target } = input;
   if (target.id === actorId || !canManageUsers(actorMs, orgId, orgType)) return [];
@@ -118,7 +116,7 @@ export function personActions(input: {
   const actions: PersonAction[] = ["roles", "remove"];
   const crossOrgOk = superAdmin || !target.belongsElsewhere;
   if (crossOrgOk && target.totpEnabled) actions.push("reset2fa");
-  if (input.resetLinks && crossOrgOk && !target.disabled) actions.push("resetLink");
+  if (crossOrgOk && !target.disabled) actions.push("resetLink");
   if (superAdmin) actions.push(target.disabled ? "reactivate" : "deactivate");
   return actions;
 }

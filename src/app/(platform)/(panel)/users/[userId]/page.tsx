@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/panel/PageHeader";
 import { PersonActionForm, RolesForm } from "@/components/panel/UserForms";
 import { panelTime } from "@/components/panel/articleLabels";
 import { requireArea } from "@/server/auth/current";
+import { env } from "@/server/env";
 import { personFor } from "@/server/users/manage";
 import { ROLE_LABELS } from "@/domain/roles";
 import { ROLES_BY_KIND } from "@/domain/users";
@@ -39,6 +40,8 @@ export default async function PersonPage({
   if (!person) notFound();
   const { org, user, rolesHere, elsewhere, actions } = person;
   const self = user.id === s.user.id;
+  // With email, reset links are emailed; without, the admin copies one (D59).
+  const emailedResets = env().PASSWORD_RESET;
 
   return (
     <div className="grid gap-6" data-manage={user.id}>
@@ -121,7 +124,17 @@ export default async function PersonPage({
               kind="resetLink"
               orgId={org.id}
               userId={user.id}
-              explain="Emails them a link to choose a new password. You won't see the link."
+              personName={user.name}
+              {...(emailedResets
+                ? {
+                    label: "Email a password reset link",
+                    explain: "Emails them a link to choose a new password. You won't see the link.",
+                  }
+                : {
+                    label: "Get a password reset link",
+                    explain:
+                      "Makes a one-time link for them to choose a new password, for you to send them. Their two-step stays on.",
+                  })}
             />
           ) : null}
           {actions.includes("reset2fa") ? (

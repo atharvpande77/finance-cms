@@ -520,3 +520,26 @@ There is no email service yet (it comes with M6), so:
   M6. Their tests run when the e2e harness is started with `INVITE_EMAILS=1` and
   `PASSWORD_RESET=1`. With the default settings, tests check that the pages answer 404, that
   inviting queues no email, and that admins get no reset-link button.
+
+## D59. Admins make reset links to copy while there is no email (2026-10-10, user decision; amends D58, departs from 04.12 until M6)
+
+Without email, a forgotten password couldn't be recovered at all: re-inviting doesn't help,
+because an existing account accepts an invitation with its current password. So an admin can
+now **get a password reset link** on the person's page and send it on themselves, as with
+invitations. 04.12 says the admin never sees a reset link (E2E-USR-87), because a copied link
+lets an admin set someone's password. These guards keep that risk small:
+- **Who:** as before. Never oneself. An institution admin only for people who belong only to
+  their institution; the super admin for anyone.
+- **The link:** once, for 60 minutes, and only the newest works. Using it ends every session,
+  clears a lockout and keeps two-step on, so for roles that need two-step the password alone
+  doesn't open the account. It is audited as `user.reset_link_created` with the admin's name,
+  and the reset page names the admin who made it.
+- **24-hour rule:** an admin who isn't the super admin can't both make a reset link and reset
+  two-step for the same person within 24 hours, in either order. Together the two would hand one
+  institution admin the account. Checked from the audit trail.
+- **Notice:** for 7 days after an admin-made reset, the person's dashboard says when it happened
+  and whose link it was, so a reset they didn't ask for gets noticed without email.
+
+"Forgot your password?" stays off until email exists (D58). With `PASSWORD_RESET=1` (M6) the
+admin's button goes back to emailing the link, and the admin no longer sees it (04.12 again).
+E2E-USR-88 is due in M5b again; E2E-USR-86 and 87 stay with M6.

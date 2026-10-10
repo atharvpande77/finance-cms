@@ -1,6 +1,5 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { db, schema } from "@/server/db/client";
-import { env } from "@/server/env";
 import { audit } from "@/server/audit";
 import { queueEmail } from "@/server/mail/outbox";
 import { twoStepResetEmail } from "@/server/mail/templates";
@@ -19,6 +18,9 @@ import {
   loadTarget,
   NOT_FOUND,
   otherActiveSuperAdmins,
+  recentAdminAction,
+  RESET_LINK_ACTIONS,
+  TAKEOVER_WINDOW_HOURS,
   type Admin,
   type Org,
   type Result,
@@ -124,7 +126,6 @@ export async function usersPage(admin: Admin, orgId?: string): Promise<UsersPage
             totpEnabled: r.totpEnabled,
             disabled: r.disabledAt !== null,
           },
-          resetLinks: env().PASSWORD_RESET,
         }),
       };
       people.set(r.id, p);
@@ -250,6 +251,17 @@ export async function resetTwoStep(
     return {
       ok: false,
       error: "This person also belongs to another organisation. Ask abcfinance to reset it.",
+    };
+  }
+  if (
+    !can(admin.memberships, "user.deactivate") &&
+    (await recentAdminAction(userId, RESET_LINK_ACTIONS, TAKEOVER_WINDOW_HOURS))
+  ) {
+    // With a reset link as well, one admin would hold the whole account (D59).
+    return {
+      ok: false,
+      error:
+        "A reset link was made for this person in the last 24 hours. Ask abcfinance to reset two-step.",
     };
   }
   const now = new Date();

@@ -132,7 +132,8 @@ const ID_OVERRIDES: Record<string, string> = {
   "E2E-AN-58": "M7",
   "E2E-AN-59": "M7",
   "U-ADS-10": "M1",
-  // Need email, or password reset, which is off until email exists (D58): due with M6.
+  // Need email, or self-service password reset, which is off until email exists (D58): due
+  // with M6. Admins' copied reset links exist already (D59).
   "E2E-USR-08": "M6",
   "E2E-USR-58": "M6",
   "E2E-USR-66": "M6",
@@ -157,7 +158,6 @@ const ID_OVERRIDES: Record<string, string> = {
   "E2E-USR-85": "M6",
   "E2E-USR-86": "M6",
   "E2E-USR-87": "M6",
-  "E2E-USR-88": "M6",
   "E2E-USR-98": "M6",
   // Change password moved into M2 (D20).
   "E2E-USR-89": "M2",

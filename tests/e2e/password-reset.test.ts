@@ -313,11 +313,9 @@ describe("links in email are built from the configured address", () => {
   });
 });
 
-describe.runIf(!RESET)("while password reset is off (D58)", () => {
-  it("has no forgot-password or reset pages", async () => {
-    for (const path of ["/forgot", "/reset/abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG"]) {
-      expect((await person().get(path)).status, path).toBe(404);
-    }
+describe.runIf(!RESET)("while self-service reset is off (D58)", () => {
+  it("has no forgot-password page", async () => {
+    expect((await person().get("/forgot")).status).toBe(404);
   });
 
   it("offers no forgot-password link at sign-in", async () => {
@@ -326,24 +324,12 @@ describe.runIf(!RESET)("while password reset is off (D58)", () => {
     expect(pageText(res.text)).not.toContain("Forgot your password?");
   });
 
-  it("gives admins no reset-link button, and sends nothing", async () => {
-    const { orgSlug } = await freshInstitution();
-    const admin = await throwaway([{ org: orgSlug, roles: ["institution_account_admin"] }], {
-      twoStep: true,
-    });
-    const target = await throwaway([{ org: orgSlug, roles: ["institution_approver"] }], {
-      twoStep: true,
-    });
-    const org = await orgIdOf(orgSlug);
-    const client = await sessionFor(admin.id);
-    const page = await client.get(`/users/${target.id}?org=${org}`);
-    expect(formsOn(page)).not.toContain("resetLink");
-    expect(formsOn(page)).toContain("reset2fa");
-    const resets = await db()
-      .select()
-      .from(schema.passwordResets)
-      .where(eq(schema.passwordResets.userId, target.id));
-    expect(resets).toHaveLength(0);
-    expect(await emailsTo(target.email, "password_reset")).toBe(0);
+  it("sends people with a dead reset link to their administrator", async () => {
+    const res = await person().get("/reset/abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG");
+    expect(
+      parse(res.text).querySelector("[data-link-state]")!.getAttribute("data-link-state"),
+    ).toBe("invalid");
+    expect(pageText(res.text)).toContain("Ask your administrator for a new one");
+    expect(res.text).not.toContain('href="/forgot"');
   });
 });

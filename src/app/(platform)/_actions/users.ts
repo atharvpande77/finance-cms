@@ -15,6 +15,8 @@ export type UserActionState = {
   /** After an invitation: the one-time link for the admin to send on, and whether it was emailed (D58). */
   invited?: { email: string; link: string; emailed: boolean };
   values?: { email: string; name: string; roles: string[] };
+  /** A reset link the admin sends on themselves, while there is no email (D59). */
+  resetLink?: string;
 };
 
 const text = (form: FormData, key: string) => String(form.get(key) ?? "").slice(0, 1000);
@@ -116,6 +118,7 @@ export async function resetLinkAction(
   const s = await admin();
   const result = await sendResetLink(s, text(form, "org"), text(form, "userId"), await requestIp());
   if (!result.ok) return { error: result.error };
+  if (result.mode === "copy") return { resetLink: result.link };
   redirect(personUrl(form, "resetLink"));
 }
 

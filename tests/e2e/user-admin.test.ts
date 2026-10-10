@@ -321,7 +321,9 @@ describe.runIf(RESET)("an admin sends a reset link", () => {
     expect(after.text).not.toContain(token);
     expect(pageText(after.text)).toContain("A reset link was emailed to them");
   });
+});
 
+describe("reset links and other organisations", () => {
   it("[E2E-USR-88] an org admin gets no such button for someone who also belongs elsewhere", async () => {
     const both = await throwaway([
       { org: orgSlug, roles: ["institution_writer"] },

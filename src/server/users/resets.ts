@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, isNull } from "drizzle-orm";
+import { and, desc, eq, gt, isNotNull, isNull } from "drizzle-orm";
 import { db, schema } from "@/server/db/client";
 import { env } from "@/server/env";
 import { audit } from "@/server/audit";
@@ -17,17 +17,27 @@ import {
 import { isEmail, normaliseEmail } from "@/domain/email";
 import { checkPassword, type PasswordProblem } from "@/domain/password-policy";
 import { linkUsable } from "@/domain/users";
-import { loadTarget, NOT_FOUND, type Admin, type Result } from "./common";
+import { can } from "@/domain/permissions";
+import {
+  loadTarget,
+  NOT_FOUND,
+  recentAdminAction,
+  TAKEOVER_WINDOW_HOURS,
+  type Admin,
+  type Result,
+} from "./common";
 
 /** Password reset links (04.12, 06.2): hashed, single use, 60 minutes, newest only. */
 
 const r = schema.passwordResets;
 const u = schema.users;
 
+/** Makes a reset link; emails it unless `copy` (the admin sends it on themselves, D59). */
 async function createReset(
   user: { id: string; name: string; email: string },
   requestedBy: { id: string; name: string } | null,
-) {
+  copy = false,
+): Promise<string> {
   const token = newToken();
   const link = publicUrl(`/reset/${token}`);
   await db().transaction(async (tx) => {
@@ -37,6 +47,7 @@ async function createReset(
       expiresAt: new Date(Date.now() + RESET_MINUTES * 60_000),
       requestedById: requestedBy?.id ?? null,
     });
+    if (copy) return;
     await queueEmail(
       {
         to: user.email,
@@ -47,6 +58,7 @@ async function createReset(
       tx,
     );
   });
+  return link;
 }
 
 /**
@@ -78,43 +90,64 @@ export async function requestReset(rawEmail: string, ip: string): Promise<void> 
   await audit({ userId: user.id, action: "auth.reset_requested", ip });
 }
 
-/** An administrator emails a person a reset link (04.12). The admin never sees the link. */
+export type ResetLinkResult = Result<{ mode: "copy"; link: string } | { mode: "email" }>;
+
+/**
+ * An administrator's reset link for a person (04.12). With email (PASSWORD_RESET) it is emailed
+ * and the admin never sees it. Without email the admin is shown it to send on themselves
+ * (D59); then, unless they are the super admin, they can't have reset this person's two-step
+ * in the last 24 hours (that pair would hand them the account).
+ */
 export async function sendResetLink(
   admin: Admin,
   orgId: string,
   userId: string,
   ip: string,
-): Promise<Result> {
-  if (!env().PASSWORD_RESET) {
-    return { ok: false, error: "Password reset links aren't available yet." };
-  }
+): Promise<ResetLinkResult> {
   const target = await loadTarget(admin, orgId, userId);
   if (!target) return { ok: false, error: NOT_FOUND };
   if (!target.actions.includes("resetLink")) {
     return {
       ok: false,
       error: target.elsewhere.length
-        ? "This person also belongs to another organisation. Ask abcfinance to send the link."
-        : "You can't send a reset link to this account.",
+        ? "This person also belongs to another organisation. Ask abcfinance for the link."
+        : "You can't make a reset link for this account.",
     };
   }
-  await createReset(target.user, admin.user);
+  const email = env().PASSWORD_RESET;
+  if (
+    !email &&
+    !can(admin.memberships, "user.deactivate") &&
+    (await recentAdminAction(userId, ["user.2fa_reset"], TAKEOVER_WINDOW_HOURS))
+  ) {
+    return {
+      ok: false,
+      error:
+        "This person's two-step verification was reset in the last 24 hours. Ask abcfinance for a reset link.",
+    };
+  }
+  const link = await createReset(target.user, admin.user, !email);
   await audit({
     userId: admin.user.id,
-    action: "user.reset_link_sent",
+    action: email ? "user.reset_link_sent" : "user.reset_link_created",
     detail: { targetUserId: userId, organisationId: orgId },
     ip,
   });
-  return { ok: true };
+  return email ? { ok: true, mode: "email" } : { ok: true, mode: "copy", link };
 }
 
 export type ResetLink =
-  | { state: "ok"; resetId: string; user: typeof schema.users.$inferSelect }
+  | {
+      state: "ok";
+      resetId: string;
+      user: typeof schema.users.$inferSelect;
+      /** The admin who made the link, or null when the person asked for it. */
+      madeBy: { id: string; name: string } | null;
+    }
   | { state: "expired" | "used" | "invalid" };
 
 /** What the reset page may show: the link must be usable, the newest, and the account active. */
 export async function openReset(token: string, now = new Date()): Promise<ResetLink> {
-  if (!env().PASSWORD_RESET) return { state: "invalid" };
   if (!/^[A-Za-z0-9_-]{20,100}$/.test(token)) return { state: "invalid" };
   const [row] = await db()
     .select({ reset: r, user: u })
@@ -132,7 +165,10 @@ export async function openReset(token: string, now = new Date()): Promise<ResetL
     .orderBy(desc(r.createdAt), desc(r.id))
     .limit(1);
   if (newest?.id !== row.reset.id) return { state: "used" };
-  return { state: "ok", resetId: row.reset.id, user: row.user };
+  const [madeBy] = row.reset.requestedById
+    ? await db().select({ id: u.id, name: u.name }).from(u).where(eq(u.id, row.reset.requestedById))
+    : [];
+  return { state: "ok", resetId: row.reset.id, user: row.user, madeBy: madeBy ?? null };
 }
 
 export type CompleteResetResult =
@@ -185,7 +221,7 @@ export async function completeReset(input: {
       {
         userId: link.user.id,
         action: "auth.password_reset",
-        detail: { endedSessions: ended },
+        detail: { endedSessions: ended, requestedById: link.madeBy?.id ?? null },
         ip: input.ip,
       },
       tx,
@@ -193,4 +229,25 @@ export async function completeReset(input: {
     return true;
   });
   return done ? { kind: "ok" } : { kind: "link", state: "used" };
+}
+
+/** Days the person is told on their dashboard that an admin's link reset their password. */
+export const RESET_NOTICE_DAYS = 7;
+
+/** The latest admin-made reset this person used in the last week, for their dashboard (D59). */
+export async function recentAdminReset(userId: string): Promise<{ at: Date; by: string } | null> {
+  const [row] = await db()
+    .select({ at: r.usedAt, by: u.name })
+    .from(r)
+    .innerJoin(u, eq(u.id, r.requestedById))
+    .where(
+      and(
+        eq(r.userId, userId),
+        isNotNull(r.usedAt),
+        gt(r.usedAt, new Date(Date.now() - RESET_NOTICE_DAYS * 86_400_000)),
+      ),
+    )
+    .orderBy(desc(r.usedAt))
+    .limit(1);
+  return row?.at ? { at: row.at, by: row.by } : null;
 }

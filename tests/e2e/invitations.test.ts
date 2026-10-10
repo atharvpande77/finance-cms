@@ -548,8 +548,8 @@ describe("inviting someone who already has an account", () => {
     );
     expect(errorOf(res)).toContain("also belongs to another organisation");
     expect((await userByEmail(existing.email)).totpEnabled).toBe(true);
-    // The reset-link half runs once password reset exists (PASSWORD_RESET, D58).
-    if (process.env.PASSWORD_RESET === "1") {
+    // The reset-link half: copied links (D59) and emailed ones follow the same rule.
+    {
       expect(formsOn(other)).toContain("resetLink");
       const link = await adminAmc.submitForm(
         `/users/${single.id}?org=${amc}`,

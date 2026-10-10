@@ -1,6 +1,5 @@
-import { and, eq, isNull, ne } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, ne, sql } from "drizzle-orm";
 import { db, schema, type Db, type Tx } from "@/server/db/client";
-import { env } from "@/server/env";
 import type { SessionInfo } from "@/server/auth/sessions";
 import type { OrganisationType, Role } from "@/domain/roles";
 import { canManageUsers, personActions, type PersonAction } from "@/domain/users";
@@ -82,7 +81,6 @@ export async function loadTarget(
         totpEnabled: user.totpEnabled,
         disabled: user.disabledAt !== null,
       },
-      resetLinks: env().PASSWORD_RESET,
     }),
   };
 }
@@ -101,3 +99,31 @@ export async function otherActiveSuperAdmins(
     .where(and(eq(m.role, "abcfinance_super_admin"), ne(u.id, userId), isNull(u.disabledAt)));
   return rows.length;
 }
+
+/**
+ * Whether one of `actions` was done to `targetUserId` in the last `hours` (from the audit
+ * trail). Used for the rule that an admin who isn't the super admin can't both make a reset
+ * link and reset two-step for the same person within 24 hours (D59).
+ */
+export async function recentAdminAction(
+  targetUserId: string,
+  actions: readonly string[],
+  hours: number,
+): Promise<boolean> {
+  const a = schema.auditEvents;
+  const rows = await db()
+    .select({ id: a.id })
+    .from(a)
+    .where(
+      and(
+        inArray(a.action, [...actions]),
+        sql`${a.detail}->>'targetUserId' = ${targetUserId}`,
+        gt(a.createdAt, new Date(Date.now() - hours * 3600_000)),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
+}
+
+export const TAKEOVER_WINDOW_HOURS = 24;
+export const RESET_LINK_ACTIONS = ["user.reset_link_created", "user.reset_link_sent"] as const;
