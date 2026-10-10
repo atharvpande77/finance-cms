@@ -7,6 +7,7 @@ import { ArticleCard } from "@/components/reader/ArticleCard";
 import { CalculatorBlock } from "@/components/reader/calculators/CalculatorBlock";
 import { Disclaimer } from "@/components/reader/Disclaimer";
 import { getSite, pageMetadata } from "@/app/sites/site";
+import { Tracker } from "@/components/reader/Tracker";
 
 export type SectionParams = { host: string; lang: string; section: string };
 
@@ -36,6 +37,7 @@ export async function SectionView({ host, lang, section: slug }: SectionParams) 
 
   return (
     <>
+      <Tracker kind="section" lang={site.lang} />
       <header className="max-w-3xl">
         <h1 className="font-display text-4xl font-bold text-balance">{pick(section.name, lang)}</h1>
         <p className="mt-2 text-lg text-pretty text-muted">{pick(section.blurb, lang)}</p>

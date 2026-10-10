@@ -6,6 +6,7 @@ import { ArticleCard } from "@/components/reader/ArticleCard";
 import { ExpertTag } from "@/components/reader/Labels";
 import { JsonLd } from "@/components/reader/JsonLd";
 import { getSite, pageMetadata } from "@/app/sites/site";
+import { Tracker } from "@/components/reader/Tracker";
 
 type Props = { params: Promise<{ host: string; lang: string; slug: string }> };
 
@@ -31,6 +32,7 @@ export default async function ExpertPage({ params }: Props) {
 
   return (
     <>
+      <Tracker kind="other" lang={site.lang} />
       <header className="max-w-3xl">
         {author.contributorType === "independent" && <ExpertTag lang={lang} />}
         <h1 className="mt-3 font-display text-4xl font-bold">{author.name}</h1>

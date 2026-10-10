@@ -402,3 +402,56 @@ Both sides decide where an institution article runs:
 abcfinance's own and independent experts' articles have no institution: the editor chooses any
 papers at release, none pre-ticked. The choice is stored in `article_targets` and audited with
 the approval.
+
+## D47. M5 is split: analytics and reports first, then user management (2026-10-10, user decision)
+
+M5 had about 160 checks. **M5a** is the tracker, the beacon and the reports; **M5b** is
+invitations, password reset and the Users page. Analytics goes first so that engaged reads, from
+which M7 works out the revenue pool, are collected from launch.
+
+Money and widget reports wait for the features they report on:
+- `pub-pool`, `pub-payouts`, `abc-sponsors`, `abc-newspapers` and the Finance page come with
+  revenue sharing (M7). The doc-08 checks E2E-AN-40, 41, 42, 44 and 48–59 are mapped to M7.
+- `pub-widgets` and `pub-widget-pages` come with the widgets (M8).
+- Until then the newspaper summary shows traffic only and says earnings appear once monthly
+  statements start.
+
+The report CSV export is a POST from the panel's own form, like the leads export (D38), rather
+than the GET link doc 05 shows: a link on another site can't start downloads or write audit rows
+in someone's name.
+
+## D48. The beacon carries the referrer's host name (2026-10-10, M5a)
+
+Doc 05's beacon body has no referrer, but 04.8 counts views from search, and the beacon's own
+`Referer` is the page itself. The tracker adds `r`, the **host name only** of
+`document.referrer` (no path or query). The server classifies it as search (the nine engines in
+04.8), another site, or direct; a referrer on the paper's own host is direct. Nothing else about
+the referrer is stored.
+
+## D49. Calculator credit follows the brand the reader saw; staff can read institution reports (2026-10-10, user decision)
+
+- **Calculator use** (04.8) is credited to the organisation whose brand the calculator showed,
+  using the same branding rule as the reader page (`src/domain/sponsor.ts`, D34): an
+  institution article credits that institution; an abcfinance article or calculator page credits
+  the sponsor shown as "Sponsored by". An independent expert's article, or a calculator shown
+  unbranded because a rival holds the category exclusively, credits nobody. 04.8's literal
+  wording ("else the sponsor of the calculator's section") would credit a sponsor whose brand
+  was hidden.
+- **Institution reports:** 04.9 gives them to the institution's account admins only. abcfinance's
+  super admin and desk manager can also open any institution's reports, read-only, through an
+  institution picker, so they can support a sponsor. The reports hold totals only; staff still
+  never see individual leads (04.6).
+
+## D50. An engaged read counts on the day of its view (2026-10-10, M5a)
+
+The engaged beacon can arrive after midnight for a view opened before it. The engaged read is
+added to the view's Indian day, so a view and its engaged read are always on the same daily row
+and the engaged rate never goes above 100%.
+
+## D51. SEO health thresholds (2026-10-10, M5a)
+
+04.9 lists the `abc-seo` measures without thresholds. **Visibility** is the paper's status: live
+papers are indexed, staging papers are noindex. A **short summary** is under 70 characters
+(search engines show roughly 150; under 70 usually means a placeholder). **Overdue review**
+means `reviewBy` is before today. **No views** means a published copy with no views in the
+chosen month.

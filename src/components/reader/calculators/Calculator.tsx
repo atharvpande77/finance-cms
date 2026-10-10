@@ -1,6 +1,7 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
+import { CALC_USE_EVENT } from "@/domain/analytics";
 import { t, type Lang } from "@/domain/i18n";
 import {
   choiceOptions,
@@ -109,10 +110,16 @@ export function Calculator({
   const inputs = readerInputs(def, rates);
   const [values, setValues] = useState(() => initialValues(inputs));
   const idBase = useId();
+  const used = useRef(false);
   const result = computeResult(slug, values, rates);
   const all = [result.main, ...result.items, ...(result.steps ?? [])];
 
   function set(key: string, value: number | string) {
+    if (!used.current) {
+      // The reader's first change counts as one use of this calculator (04.8).
+      used.current = true;
+      dispatchEvent(new CustomEvent(CALC_USE_EVENT, { detail: slug }));
+    }
     setValues((current) => {
       const next = { ...current, [key]: value };
       // A dependent choice (the engine band) must stay one of its new options.

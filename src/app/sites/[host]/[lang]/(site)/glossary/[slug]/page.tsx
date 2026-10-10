@@ -4,6 +4,7 @@ import { pick, t } from "@/domain/i18n";
 import { glossaryTerm } from "@/server/content/queries";
 import { JsonLd } from "@/components/reader/JsonLd";
 import { getSite, pageMetadata } from "@/app/sites/site";
+import { Tracker } from "@/components/reader/Tracker";
 
 type Props = { params: Promise<{ host: string; lang: string; slug: string }> };
 
@@ -24,6 +25,7 @@ export default async function GlossaryTermPage({ params }: Props) {
   if (!term) notFound();
   return (
     <div className="mx-auto max-w-[42rem]">
+      <Tracker kind="other" lang={site.lang} />
       <a
         href={site.path("/glossary")}
         className="text-sm font-semibold text-primary hover:underline"

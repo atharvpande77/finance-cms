@@ -4,6 +4,7 @@ import { pick, t } from "@/domain/i18n";
 import { calculatorBySlug } from "@/domain/calc/catalog";
 import { CalculatorBlock } from "@/components/reader/calculators/CalculatorBlock";
 import { getSite, pageMetadata } from "@/app/sites/site";
+import { Tracker } from "@/components/reader/Tracker";
 
 type Props = { params: Promise<{ host: string; lang: string; slug: string }> };
 
@@ -25,6 +26,7 @@ export default async function CalculatorPage({ params }: Props) {
   const site = await getSite(host, lang);
   return (
     <div className="mx-auto max-w-[60rem]">
+      <Tracker kind="calculator" lang={site.lang} />
       <a
         href={site.path("/calculators")}
         className="text-sm font-semibold text-primary hover:underline"

@@ -4,6 +4,7 @@ import { CALCULATORS } from "@/domain/calc/catalog";
 import { allSections, listPublished } from "@/server/content/queries";
 import { ArticleCard } from "@/components/reader/ArticleCard";
 import { getSite, pageMetadata } from "@/app/sites/site";
+import { Tracker } from "@/components/reader/Tracker";
 
 type Props = { params: Promise<{ host: string; lang: string }> };
 
@@ -25,6 +26,7 @@ export default async function HomePage({ params }: Props) {
 
   return (
     <>
+      <Tracker kind="home" lang={site.lang} />
       <h1 className="sr-only">
         {site.sectionLabel} · {site.paperName}
       </h1>

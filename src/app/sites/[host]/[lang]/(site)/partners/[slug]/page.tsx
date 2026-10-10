@@ -5,6 +5,7 @@ import { listPublished, partnerBySlug } from "@/server/content/queries";
 import { ArticleCard } from "@/components/reader/ArticleCard";
 import { PartnerLabel } from "@/components/reader/Labels";
 import { getSite, pageMetadata } from "@/app/sites/site";
+import { Tracker } from "@/components/reader/Tracker";
 
 type Props = { params: Promise<{ host: string; lang: string; slug: string }> };
 
@@ -27,6 +28,7 @@ export default async function PartnerPage({ params }: Props) {
   const articles = await listPublished(site.tenant.id, lang, { organisationId: org.id });
   return (
     <>
+      <Tracker kind="other" lang={site.lang} />
       <header className="max-w-3xl">
         <PartnerLabel lang={lang} />
         <h1 className="mt-3 font-display text-4xl font-bold">{org.name}</h1>

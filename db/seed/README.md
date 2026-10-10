@@ -110,8 +110,26 @@ ranges and reader defaults are ours (D32), in `src/domain/calc/fields.ts`.
 No demo leads: the inbox starts empty, as TESTING.md expects. The General Insurer keeps leads
 for 180 days instead of the default 365 (D37).
 
+## Traffic (M5a)
+
+`traffic.ts` adds 45 days of daily page counters up to yesterday, so the reports have something
+to show. Every figure is invented, from fixed-seed random numbers per paper, page and day, so a
+reset gives the same data:
+
+- **Which pages:** home, the calculator list, the glossary, each section and calculator page in
+  every language a paper publishes, and each published copy from its publication day.
+- **How many views:** Tarun Bharat is the busiest; Paper B gets 40% of its views and Paper C
+  25%. A paper's other language gets about a third of the views of its default one, and
+  weekends are 25% quieter.
+- **Article views:** 30–45% engaged, 45–65% from search.
+- **Other pages:** 8–16% engaged, 10–25% from search.
+- **All pages:** 65–80% on phones.
+- **Calculator uses:** about 30% of a calculator page's views, 10% of an article's per embedded
+  calculator and 6% of a section page's. Each use is credited to the brand shown (D49).
+
+No per-view rows are seeded. Today's figures come only from the tracker.
+
 ## Still to add
 
-- **M5:** 45 days of traffic.
 - **M7:** past statements.
 - **M8:** widget cards.

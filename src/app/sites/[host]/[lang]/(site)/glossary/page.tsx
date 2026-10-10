@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { pick, t } from "@/domain/i18n";
 import { glossaryTerms } from "@/server/content/queries";
 import { getSite, pageMetadata } from "@/app/sites/site";
+import { Tracker } from "@/components/reader/Tracker";
 
 type Props = { params: Promise<{ host: string; lang: string }> };
 
@@ -18,6 +19,7 @@ export default async function GlossaryPage({ params }: Props) {
   );
   return (
     <div className="mx-auto max-w-[42rem]">
+      <Tracker kind="other" lang={site.lang} />
       <h1 className="font-display text-4xl font-bold">{t(lang, "glossary")}</h1>
       <dl className="mt-8 divide-y divide-ink/10">
         {terms.map((term) => (

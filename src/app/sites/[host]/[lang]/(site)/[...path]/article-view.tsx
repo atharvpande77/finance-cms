@@ -21,6 +21,7 @@ import { ArticleLabel } from "@/components/reader/Labels";
 import { Disclaimer } from "@/components/reader/Disclaimer";
 import { JsonLd } from "@/components/reader/JsonLd";
 import { approvalLine, getSite, pageMetadata, type Site } from "@/app/sites/site";
+import { Tracker } from "@/components/reader/Tracker";
 
 /** Where an embedded calculator sits, for its branding (04.7). */
 function brandContext(copy: PublishedCopy): BrandContext {
@@ -88,6 +89,7 @@ export async function ArticleView(params: ArticleParams) {
 
   return (
     <>
+      <Tracker kind="article" versionId={copy.versionId} lang={site.lang} />
       <article className="mx-auto max-w-[42rem]">
         <nav aria-label={t(lang, "sections")} className="text-sm">
           <a

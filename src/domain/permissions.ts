@@ -46,7 +46,8 @@ const RULES = {
   /** Publish copies past their window now: a paper's editor for that paper, or staff for all. */
   "copy.run_due": { scoped: ["publisher_editor"], global: STAFF_ADMINS },
   "reports.publisher": { scoped: ["publisher_admin"], global: STAFF_ADMINS },
-  "reports.institution": { scoped: ["institution_account_admin"] },
+  /** An institution's own reports; abcfinance staff may read any institution's (D49). */
+  "reports.institution": { scoped: ["institution_account_admin"], global: STAFF_ADMINS },
   "reports.abcfinance": { global: STAFF_ADMINS },
   "leads.view": { scoped: ["institution_account_admin"] },
   "rates.edit": { scoped: ["institution_account_admin"] },

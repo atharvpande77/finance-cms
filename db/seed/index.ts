@@ -9,6 +9,7 @@ import { hashPassword } from "@/server/auth/password";
 import * as data from "./data";
 import { articles as seedArticles } from "./articles";
 import { releasedArticles, SEED_WINDOW_HOURS, workflowArticles } from "./workflow";
+import { seedTraffic } from "./traffic";
 
 async function main() {
   const d = db();
@@ -419,12 +420,16 @@ async function main() {
     });
   }
 
+  // 45 days of demo traffic for the reports (M5a), counted up to yesterday.
+  await seedTraffic(d);
+
   const count = async (table: Parameters<typeof d.$count>[0]) => d.$count(table);
   console.log(
     `Seeded: ${await count(schema.organisations)} organisations, ${await count(schema.tenants)} newspapers, ` +
       `${await count(schema.sections)} sections, ${await count(schema.users)} users, ` +
       `${await count(schema.plans)} plans, ${await count(schema.contracts)} contracts, ` +
-      `${await count(schema.articles)} articles, ${await count(schema.articleVersions)} versions.`,
+      `${await count(schema.articles)} articles, ${await count(schema.articleVersions)} versions, ` +
+      `${await count(schema.pageStats)} daily page counters.`,
   );
 }
 

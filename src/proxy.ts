@@ -17,6 +17,8 @@ import { isPanelHost, tenantByHost } from "@/server/tenants";
 const SITE_FILES: Record<string, string> = {
   "/sitemap.xml": "sitemap-xml",
   "/robots.txt": "robots-txt",
+  // The tracking beacon (05.1); folders starting with "_" are private in the App Router.
+  "/_a/h": "beacon",
 };
 
 function notFound() {
