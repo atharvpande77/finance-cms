@@ -185,6 +185,8 @@ async function main() {
           authorId: authorRows.find((r) => r.slug === a.author)!.id,
           sectionId: sectionRows.find((r) => r.slug === a.section)!.id,
           reviewBy: reviewBy.toISOString().slice(0, 10),
+          // Filed by the byline's own writer; expert articles by abcfinance's writer (D42, D45).
+          createdById: userId(data.authors.find((x) => x.slug === a.author)?.user ?? "writer.abc"),
           createdAt: created,
         })
         .returning();

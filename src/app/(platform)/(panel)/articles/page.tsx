@@ -4,7 +4,13 @@ import { FileText, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/panel/PageHeader";
-import { LANGUAGE_NAMES, STATE_BADGE, localized } from "@/components/panel/articleLabels";
+import {
+  COPY_BADGE,
+  LANGUAGE_NAMES,
+  PAPER_STATUS_TEXT,
+  STATE_BADGE,
+  localized,
+} from "@/components/panel/articleLabels";
 import { requireArea } from "@/server/auth/current";
 import { listForUser } from "@/server/articles/queries";
 import { canCreate, STATE_LABELS } from "@/domain/workflow";
@@ -60,16 +66,29 @@ export default async function ArticlesPage() {
                   >
                     {v.headline || "Untitled"}
                   </Link>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {v.yourTurn ? (
                       <Badge data-your-turn className="bg-primary">
                         Your turn
                       </Badge>
                     ) : null}
                     <Badge variant="outline">{LANGUAGE_NAMES[v.language] ?? v.language}</Badge>
-                    <Badge variant={STATE_BADGE[v.state]} data-version-state={v.state}>
-                      {STATE_LABELS[v.state]}
-                    </Badge>
+                    {/* Once released, where it is on each paper says more than "With publisher". */}
+                    {v.papers.length ? (
+                      v.papers.map((p) => (
+                        <Badge
+                          key={p.paper}
+                          variant={COPY_BADGE[p.status]}
+                          data-paper-status={p.status}
+                        >
+                          {PAPER_STATUS_TEXT[p.status](p.paper)}
+                        </Badge>
+                      ))
+                    ) : (
+                      <Badge variant={STATE_BADGE[v.state]} data-version-state={v.state}>
+                        {STATE_LABELS[v.state]}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               ))}

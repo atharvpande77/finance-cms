@@ -13,6 +13,7 @@ import {
   COPY_BADGE,
   DONE_MESSAGES,
   LANGUAGE_NAMES,
+  PAPER_STATUS_TEXT,
   STATE_BADGE,
   localized,
   panelTime,
@@ -117,6 +118,14 @@ export default async function ArticlePage({
             {STATE_LABELS[version.state]}
           </Badge>
           <Badge variant="outline">{LANGUAGE_NAMES[lang] ?? lang}</Badge>
+          {copies.map((c) => {
+            const status = copyStatus(c);
+            return (
+              <Badge key={c.copyId} variant={COPY_BADGE[status]} data-paper-status={status}>
+                {PAPER_STATUS_TEXT[status](c.tenantName)}
+              </Badge>
+            );
+          })}
           {yourTurn ? <Badge data-your-turn>Your turn</Badge> : null}
         </div>
         <h1 className="text-2xl font-semibold tracking-tight text-balance" data-headline>

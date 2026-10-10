@@ -374,3 +374,16 @@ English headline, or a placeholder `draft-xxxxxx` (a Marathi headline, or one th
 a placeholder). Only abcfinance's editors change it, in Editing, and release is refused while it
 is still a placeholder. The `draft-` prefix can't be saved by hand. Once released it is fixed, as
 before.
+
+## D45. Writers see only the articles they filed (2026-10-10, user decision)
+
+04.1 lets institution roles see all of their institution's articles. An institution, or
+abcfinance, can have several writers, so writers (`institution_writer`, `abcfinance_writer`) now
+see only the articles they filed (`articles.createdById`), at every stage. An institution's
+approvers, compliance officers and account admins still see all of its articles, and
+abcfinance's editors see everything. Someone who is both a writer and a reviewer sees what the
+reviewer role allows. An article a person may not see answers 404, as before (D25). The seed
+records who filed each demo article: the byline's own writer, or `writer.abc` for the expert's.
+
+Once released, an article's status in the list and on its page is shown per paper, for example
+"Live on Tarun Bharat" or "Waiting at Paper B", instead of only "With publisher".

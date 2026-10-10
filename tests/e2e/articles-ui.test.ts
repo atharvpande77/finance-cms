@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
+import { parse } from "node-html-parser";
 import { pageText, siteOrigin, type HttpClient } from "../http-client";
 import { menuLinks, person, signInFully } from "./auth-helpers";
 import { BODY, createArticle, stateOf, step, type Created } from "./article-helpers";
@@ -53,6 +54,20 @@ describe("article workflow through the real pages (up to Editing)", () => {
     expect(pageText(res.text)).toContain("by Anita Kulkarni");
     expect(res.text).not.toContain('name="slug"');
     expect(res.text).toContain("data-papers-later");
+  });
+
+  it("shows writers only their own articles, with where each is live (D45)", async () => {
+    const list = await writer.get("/articles");
+    const sip = list.text.match(/data-article="sip-basics"[\s\S]*?<\/li>/)?.[0] ?? "";
+    expect(sip).toContain('data-paper-status="published"');
+    expect(parse(sip).textContent).toContain("Live on Paper B");
+    expect(parse(sip).textContent).toContain("Live on Tarun Bharat");
+    // An article by a colleague at the same institution stays out of sight.
+    const admin = await signInFully("admin.amc");
+    const theirs = await createArticle(admin, { headline: `Colleague's piece ${Date.now()}` });
+    expect((await writer.get(theirs.url)).status).toBe(404);
+    expect((await writer.get("/articles")).text).not.toContain(`data-article="${theirs.slug}"`);
+    expect((await admin.get(article.url)).status).toBe(200);
   });
 
   it("[E2E-UI-04] draft page shows the editor and Submit button", async () => {

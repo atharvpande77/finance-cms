@@ -99,7 +99,7 @@ describe("abcfinance side", () => {
     expect(allowedActions(writer, abcArticle, master("draft"))).toEqual([]);
     expect(allowedActions(admin, abcArticle, master("editing"))).toEqual([]);
     expect(canAddLanguage(writer, abcArticle)).toBe(false);
-    expect(canView(writer, abcArticle)).toBe(false);
+    expect(canView(writer, { ...abcArticle, createdById: "me" }, "me")).toBe(false);
   });
 
   it("[U-WF-08] editor edits and releases only in the editing state", () => {
@@ -118,12 +118,23 @@ describe("abcfinance side", () => {
 });
 
 describe("visibility and turns", () => {
-  it("shows staff everything, institutions their own, publishers nothing", () => {
-    expect(canView(editor, amcArticle)).toBe(true);
-    expect(canView(abcWriter, amcArticle)).toBe(true);
-    expect(canView(approver, amcArticle)).toBe(true);
-    expect(canView(approverGi, amcArticle)).toBe(false);
-    expect(canView([m("publisher_editor", TB)], amcArticle)).toBe(false);
+  it("shows editors everything, reviewers their institution's, writers their own (D45)", () => {
+    const mine = { ...amcArticle, createdById: "me" };
+    const theirs = { ...amcArticle, createdById: "colleague" };
+    expect(canView(editor, theirs, "me")).toBe(true);
+    expect(canView(approver, theirs, "me")).toBe(true);
+    expect(canView(compliance, theirs, "me")).toBe(true);
+    expect(canView(admin, theirs, "me")).toBe(true);
+    expect(canView(approverGi, theirs, "me")).toBe(false);
+    expect(canView([m("publisher_editor", TB)], theirs, "me")).toBe(false);
+    // Writers see what they filed, not their colleagues' articles.
+    expect(canView(writer, mine, "me")).toBe(true);
+    expect(canView(writer, theirs, "me")).toBe(false);
+    expect(canView(abcWriter, { ...abcArticle, createdById: "me" }, "me")).toBe(true);
+    expect(canView(abcWriter, { ...abcArticle, createdById: "colleague" }, "me")).toBe(false);
+    expect(canView(abcWriter, theirs, "me")).toBe(false);
+    // A writer who also approves sees the whole institution.
+    expect(canView([...writer, ...approver], theirs, "me")).toBe(true);
   });
 
   it("marks the person whose step is next", () => {

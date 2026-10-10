@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray, isNull, ne, or } from "drizzle-orm";
 import { db, schema } from "@/server/db/client";
 import type { SessionInfo } from "@/server/auth/sessions";
+import { copyStatus } from "@/domain/publishing";
 import {
   allowedActions,
   authorChoices,
@@ -17,7 +18,7 @@ const a = schema.articles;
 const v = schema.articleVersions;
 const s = schema.sections;
 
-type Session = Pick<SessionInfo, "memberships">;
+type Session = Pick<SessionInfo, "memberships"> & { user: { id: string } };
 
 function visibleOrgs(session: Session): string[] | "all" | "none" {
   if (session.memberships.some((m) => m.organisationType === "abcfinance")) return "all";
@@ -26,6 +27,8 @@ function visibleOrgs(session: Session): string[] | "all" | "none" {
     .map((m) => m.organisationId);
   return orgs.length ? orgs : "none";
 }
+
+export type PaperStatus = { paper: string; status: ReturnType<typeof copyStatus> };
 
 export type ArticleListItem = {
   articleId: string;
@@ -41,6 +44,8 @@ export type ArticleListItem = {
     state: VersionState;
     updatedAt: Date;
     yourTurn: boolean;
+    /** Where the released version is on each paper (D45), newest papers last. */
+    papers: PaperStatus[];
   }>;
   yourTurn: boolean;
   updatedAt: Date;
@@ -58,6 +63,7 @@ export async function listForUser(session: Session): Promise<ArticleListItem[]> 
       organisationName: schema.organisations.name,
       sectionName: s.name,
       reviewBy: a.reviewBy,
+      createdById: a.createdById,
       versionId: v.id,
       language: v.language,
       headline: v.headline,
@@ -72,7 +78,10 @@ export async function listForUser(session: Session): Promise<ArticleListItem[]> 
     .orderBy(desc(v.updatedAt));
 
   const byArticle = new Map<string, ArticleListItem>();
-  for (const r of rows) {
+  // Writers see only what they filed (D45); the organisation filter above is the coarse cut.
+  const visible = rows.filter((r) => canView(session.memberships, r, session.user.id));
+  const papers = await paperStatuses([...new Set(visible.map((r) => r.articleId))]);
+  for (const r of visible) {
     const ref = { type: r.type, organisationId: r.organisationId };
     const yourTurn = isYourTurn(session.memberships, ref, { state: r.state, tenantId: null });
     let item = byArticle.get(r.articleId);
@@ -97,6 +106,7 @@ export async function listForUser(session: Session): Promise<ArticleListItem[]> 
       state: r.state,
       updatedAt: r.updatedAt,
       yourTurn,
+      papers: papers.get(`${r.articleId}:${r.language}`) ?? [],
     });
     item.yourTurn ||= yourTurn;
   }
@@ -104,6 +114,32 @@ export async function listForUser(session: Session): Promise<ArticleListItem[]> 
     (x, y) =>
       Number(y.yourTurn) - Number(x.yourTurn) || y.updatedAt.getTime() - x.updatedAt.getTime(),
   );
+}
+
+/** Each article language's status on every paper it was sent to, keyed "articleId:language". */
+async function paperStatuses(articleIds: string[]): Promise<Map<string, PaperStatus[]>> {
+  const out = new Map<string, PaperStatus[]>();
+  if (articleIds.length === 0) return out;
+  const copies = await db()
+    .select({
+      articleId: v.articleId,
+      language: v.language,
+      state: v.state,
+      heldAt: v.heldAt,
+      name: schema.tenants.name,
+      slug: schema.tenants.slug,
+    })
+    .from(v)
+    .innerJoin(schema.tenants, eq(schema.tenants.id, v.tenantId))
+    .where(inArray(v.articleId, articleIds))
+    .orderBy(asc(schema.tenants.slug));
+  for (const c of copies) {
+    const key = `${c.articleId}:${c.language}`;
+    const list = out.get(key) ?? [];
+    list.push({ paper: c.name.en ?? Object.values(c.name)[0] ?? c.slug, status: copyStatus(c) });
+    out.set(key, list);
+  }
+  return out;
 }
 
 /** Versions whose next step is this person's (dashboard "Waiting for you"). */
@@ -136,13 +172,14 @@ export async function getForUser(session: Session, articleId: string, language: 
       authorName: schema.authors.name,
       reviewBy: a.reviewBy,
       createdAt: a.createdAt,
+      createdById: a.createdById,
     })
     .from(a)
     .innerJoin(s, eq(s.id, a.sectionId))
     .innerJoin(schema.organisations, eq(schema.organisations.id, a.organisationId))
     .leftJoin(schema.authors, eq(schema.authors.id, a.authorId))
     .where(eq(a.id, articleId));
-  if (!article || !canView(session.memberships, article)) return null;
+  if (!article || !canView(session.memberships, article, session.user.id)) return null;
 
   const masters = await db()
     .select()

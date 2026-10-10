@@ -332,3 +332,64 @@ describe("visibility", () => {
     });
   });
 });
+
+describe("who sees which articles (D45)", () => {
+  async function makeWriter(orgSlug: string, role: "institution_writer" | "abcfinance_writer") {
+    const [org] = await db()
+      .select()
+      .from(schema.organisations)
+      .where(eq(schema.organisations.slug, orgSlug));
+    const [user] = await db()
+      .insert(schema.users)
+      .values({ name: "Second Writer", email: `w-${unique()}@int.test`, passwordHash: "x" })
+      .returning();
+    await db()
+      .insert(schema.memberships)
+      .values({ userId: user!.id, organisationId: org!.id, role });
+    return { user: { id: user!.id }, memberships: await membershipsOf(user!.id) };
+  }
+
+  it("shows writers only their own articles; reviewers and admins see the institution's", async () => {
+    const { articleId } = await newAmcArticle();
+    const colleague = await makeWriter("sample-amc", "institution_writer");
+    expect(await getForUser(colleague, articleId, "en")).toBeNull();
+    expect((await listForUser(colleague)).some((x) => x.articleId === articleId)).toBe(false);
+    expect(
+      (await listForUser(await actor("writer.amc"))).some((x) => x.articleId === articleId),
+    ).toBe(true);
+    for (const handle of ["admin.amc", "approver.amc", "compliance.amc", "editor.abc"]) {
+      expect(await getForUser(await actor(handle), articleId, "en"), handle).not.toBeNull();
+    }
+    expect(await getForUser(await actor("writer.abc"), articleId, "en")).toBeNull();
+  });
+
+  it("keeps abcfinance writers to their own articles too", async () => {
+    const { sectionId } = await ids();
+    const created = await createArticle(
+      await actor("writer.abc"),
+      {
+        sectionId,
+        language: "en",
+        writtenAs: "self:abcfinance",
+        headline: `Desk piece ${unique()}`,
+        summary: "",
+        body: BODY,
+      },
+      IP,
+    );
+    if (!created.ok) throw new Error(created.error);
+    const other = await makeWriter("abcfinance", "abcfinance_writer");
+    expect(await getForUser(other, created.articleId, "en")).toBeNull();
+    expect(await getForUser(await actor("editor.abc"), created.articleId, "en")).not.toBeNull();
+  });
+
+  it("lists a released version's status on each paper", async () => {
+    // Seeded: the AMC's SIP article is live on both of its papers; filed by writer.amc.
+    const list = await listForUser(await actor("writer.amc"));
+    const sip = list.find((x) => x.slug === "sip-basics")!;
+    const en = sip.versions.find((v) => v.language === "en")!;
+    expect(en.papers).toEqual([{ paper: "Paper B", status: "published" }]);
+    const mr = sip.versions.find((v) => v.language === "mr")!;
+    expect(mr.papers).toEqual([{ paper: "Tarun Bharat", status: "published" }]);
+  });
+});

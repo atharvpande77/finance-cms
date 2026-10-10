@@ -136,15 +136,31 @@ export function isYourTurn(
   );
 }
 
+/** Institution roles that see every article of their institution (they review or manage). */
+const INSTITUTION_WIDE: readonly Role[] = [
+  "institution_approver",
+  "institution_compliance",
+  "institution_account_admin",
+];
+
+/** An article as visibility needs it: whose it is, and who filed it. */
+export type ViewRef = ArticleRef & { createdById: string | null };
+
 /**
- * Who sees an article in the writing area (04.1): abcfinance staff see all; institution roles
- * their own institution's; publisher users none (they see paper copies in their queue).
+ * Who sees an article in the writing area (04.1, D45). abcfinance's editors see all; an
+ * institution's approvers, compliance and account admins see their institution's; writers
+ * (institution and abcfinance) see only the articles they filed. Publisher users see none here.
  */
-export function canView(ms: readonly Membership[], article: ArticleRef): boolean {
-  if (ms.some((m) => m.organisationType === "abcfinance")) return true;
-  return ms.some(
-    (m) => m.organisationType === "institution" && m.organisationId === article.organisationId,
-  );
+export function canView(ms: readonly Membership[], article: ViewRef, userId: string): boolean {
+  if (holdsAbc(ms, ABC_EDITOR_ROLES)) return true;
+  if (article.type === "institution" && holds(ms, INSTITUTION_WIDE, article.organisationId)) {
+    return true;
+  }
+  const writes =
+    article.type === "institution"
+      ? holds(ms, ["institution_writer"], article.organisationId)
+      : holdsAbc(ms, ["abcfinance_writer"]);
+  return writes && article.createdById === userId;
 }
 
 /** Who may start new articles: institution authors, and abcfinance writers and editors. */

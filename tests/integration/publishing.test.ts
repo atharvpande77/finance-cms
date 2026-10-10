@@ -187,7 +187,8 @@ describe("release", () => {
     const stale = await release(editor, versionId, 5, [tb], null, IP);
     expect(stale).toMatchObject({ ok: false, code: "conflict" });
     const writer = await release(await actor("writer.abc"), versionId, 0, [tb], null, IP);
-    expect(writer).toMatchObject({ ok: false, code: "forbidden" });
+    // A writer doesn't even see an article they didn't file (D45).
+    expect(writer).toEqual({ ok: false, error: "Article not found." });
     expect((await version(versionId)).state).toBe("editing");
   });
 

@@ -55,6 +55,7 @@ async function loadMaster(conn: Db | Tx, versionId: string) {
       version: v,
       type: a.type,
       organisationId: a.organisationId,
+      createdById: a.createdById,
       sectionSlug: schema.sections.slug,
     })
     .from(v)
@@ -142,7 +143,11 @@ export async function releasePreview(
   versionId: string,
 ): Promise<ReleasePreview | null> {
   const master = await loadMaster(db(), versionId);
-  if (!master || !canView(actor.memberships, master) || !mayRelease(actor, master.version.state)) {
+  if (
+    !master ||
+    !canView(actor.memberships, master, actor.user.id) ||
+    !mayRelease(actor, master.version.state)
+  ) {
     return null;
   }
   // Pre-ticked: the papers on the institution's active plans (D43); none for abcfinance's own.
@@ -184,7 +189,7 @@ export async function release(
   ip: string,
 ): Promise<ServiceResult<{ created: string[]; skipped: string[] }>> {
   const master = await loadMaster(db(), versionId);
-  if (!master || !canView(actor.memberships, master)) {
+  if (!master || !canView(actor.memberships, master, actor.user.id)) {
     return { ok: false, error: "Article not found." };
   }
   if (!mayRelease(actor, master.version.state)) {

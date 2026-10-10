@@ -52,6 +52,14 @@ export const COPY_BADGE: Record<
   taken_down: "outline",
 };
 
+/** A released version's status on one paper, in words (D45). */
+export const PAPER_STATUS_TEXT: Record<keyof typeof COPY_BADGE, (paper: string) => string> = {
+  published: (paper) => `Live on ${paper}`,
+  waiting: (paper) => `Waiting at ${paper}`,
+  held: (paper) => `Held by ${paper}`,
+  taken_down: (paper) => `Taken down from ${paper}`,
+};
+
 /** Date and time in India, as the panel shows them. */
 export const panelTime = new Intl.DateTimeFormat("en-IN", {
   day: "numeric",

@@ -210,6 +210,7 @@ async function loadVersion(versionId: string) {
       version: schema.articleVersions,
       type: schema.articles.type,
       organisationId: schema.articles.organisationId,
+      createdById: schema.articles.createdById,
     })
     .from(schema.articleVersions)
     .innerJoin(schema.articles, eq(schema.articles.id, schema.articleVersions.articleId))
@@ -233,7 +234,8 @@ export async function saveVersion(
   ip: string,
 ): Promise<ServiceResult> {
   const row = await loadVersion(versionId);
-  if (!row || !canView(actor.memberships, row)) return { ok: false, error: "Article not found." };
+  if (!row || !canView(actor.memberships, row, actor.user.id))
+    return { ok: false, error: "Article not found." };
   if (!can(actor.memberships, row, row.version, "save")) return { ok: false, error: NOT_ALLOWED };
   const parsed = saveInput.safeParse(raw);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]!.message };
@@ -317,7 +319,8 @@ export async function transition(
   ip: string,
 ): Promise<ServiceResult<{ state: VersionState }>> {
   const row = await loadVersion(versionId);
-  if (!row || !canView(actor.memberships, row)) return { ok: false, error: "Article not found." };
+  if (!row || !canView(actor.memberships, row, actor.user.id))
+    return { ok: false, error: "Article not found." };
   const { version } = row;
   if (!can(actor.memberships, row, version, action)) {
     // A stale page asking for a step that has already happened is a conflict, not a refusal.
@@ -370,7 +373,7 @@ export async function addLanguage(
     .select()
     .from(schema.articles)
     .where(eq(schema.articles.id, articleId));
-  if (!article || !canView(actor.memberships, article))
+  if (!article || !canView(actor.memberships, article, actor.user.id))
     return { ok: false, error: "Article not found." };
   if (!canAddLanguage(actor.memberships, article)) return { ok: false, error: NOT_ALLOWED };
   const v = schema.articleVersions;
